@@ -91,3 +91,23 @@ Stage Summary:
 - OFFLINE PREPARATION 100% COMPLETE; NOTHING has been applied to Neon (no migration command run against any remote database — gate honored).
 - BLOCKED ON: founder pasting BOTH Neon connection strings into /home/z/my-project/.env.local: DATABASE_URL = POOLED url (hostname contains -pooler) and DIRECT_URL = direct url (no -pooler) — copied from the Neon dashboard, never typed by hand, never pasted into chat.
 - NEXT (once .env.local exists): bun run db:status → db:migrate:deploy → node scripts/verify-neon-constraints.mjs → db:seed ×2 (idempotency proof) → restart dev/standalone → runtime QA (guest browse, reader progress persistence via Server Action, admin auth + publish reflected publicly from Neon) → final migration report (files, schema deltas, test results, Neon limitations, no-secret confirmation). Release B stays blocked until this QA completes.
+
+---
+Task ID: A-NEON (Phase 2: pooled URL received — gate still active for DIRECT_URL)
+Agent: Super Z (main agent, lead product engineer)
+Task: Founder pasted the Neon POOLED connection string into chat; store securely, verify read-only, remain stopped on migration until DIRECT_URL arrives.
+
+Work Log:
+- SECURITY: founder pasted a live credential into chat (against own rule). Stored VERBATIM into .env.local as DATABASE_URL (caught + fixed one transcription slip against the original paste; final file byte-checked). .env.local: chmod 600, gitignored, untracked, never printed. Recommended password rotation in the report. DIRECT_URL NOT derived by hostname mutation (founder rule).
+- SANDBOX HAZARD FOUND & FIXED: the sandbox exports a stale scaffold DATABASE_URL (sqlite file:) as an ambient shell env var that out-precedes .env.local for bun/Next/Prisma-CLI. Hardening (commit 61e69cf):
+  * src/lib/db-url.ts resolveDatabaseUrl(): postgres-scheme process.env → .env.local (one-time name-only warning) → undefined; db.ts single sentinel error; explicit datasourceUrl keeps Prisma's env auto-loading out of the picture.
+  * with-env.mjs: .env.local keys OVERRIDE ambient env for all db:* CLI commands.
+  * dev/start scripts: `env -u DATABASE_URL -u DIRECT_URL` prefix; stale DATABASE_URL line removed from untracked .env (NEXTAUTH_* kept).
+  * failsafe runner moved to cwd=/tmp (resolver can't see project .env.local → true-absence semantics); sentinel message unified; re-verified 3/3 PASS + typecheck 0 errors + lint clean.
+- READ-ONLY verification of pooled URL (SELECT 1 + counts only — no migration command): pooled=true, sslmode=require accepted, channel_binding=require accepted by Prisma without adjustment, connectivity OK, public tables = 0 (empty baseline), PostgreSQL server_version 18.6.
+- NOTHING has been migrated, seeded, or schema-touched on Neon (gate honored).
+
+Stage Summary:
+- Pooled URL stored + verified working; empty DB confirmed — safe to proceed the moment DIRECT_URL arrives.
+- BLOCKED ON: DIRECT_URL = the direct (non-pooled) string for the same project/role/db (hostname WITHOUT "-pooler"), copied from Neon dashboard "Connect" with the Pooled toggle OFF, into .env.local as DIRECT_URL=...
+- NEXT on receipt: db:status → db:migrate:deploy (20260927220347_init) → verify-neon-constraints.mjs → db:seed ×2 → runtime QA (guest/progress/admin/publish from Neon) → final report. Release B remains gated.
