@@ -29,37 +29,130 @@ An Arabic-first, dark-mode, premium reading platform prototype for manga and web
 
 - **Next.js 16 (App Router) + TypeScript strict + React 19**
 - **Tailwind CSS v4** (CSS-first tokens in `src/app/globals.css`) + **shadcn/ui** (New York) + **Lucide icons**
-- **Prisma + SQLite** for the local demo runtime
+- **Prisma + Neon PostgreSQL** as the runtime database (versioned migrations; DECISIONS.md D-28)
 - **NextAuth v4** (credentials, JWT sessions, role in token)
 - **IBM Plex Sans Arabic** via `next/font` (RTL-native typography: `dir="rtl"`, letter-spacing 0, line-height ≥ 1.75)
 - **sharp** for deterministic generated cover/panel art (original abstract art — no copyrighted material)
 - **Server Actions** for all mutations (progress saving, admin CRUD)
 
-### Supabase production path
+## Database — Neon PostgreSQL (runtime)
 
-The demo runtime uses SQLite because this sandbox has no live Supabase project. The Supabase port is shipped and authoritative for production:
+The runtime database is **Neon PostgreSQL**, accessed through **Prisma** (ORM + versioned
+migrations in `prisma/migrations/`). Supabase is **not** used at runtime — the old Supabase/RLS
+SQL was a design artifact that was **never executed** and is archived, clearly labeled, in
+`docs/archive/supabase-sql-not-executed/`. There is **no database-level RLS**; see
+[What is enforced where](#what-is-enforced-where).
 
-- `supabase/migrations/0001_release_a_schema_rls.sql` — Postgres schema (enums, tables, indexes) **+ full RLS policy set** (public read of published chapters only, owner-scoped progress, editor/admin content management, admin-only roles, storage bucket policies).
-- The local data layer (`src/lib/queries.ts`, `src/lib/actions.ts`) enforces the same authorization matrix (session + role checks on every query/action) so behavior parity is testable locally.
-- Swapping to Supabase later = provision project → run migration → port `src/lib/db.ts` to `@supabase/ssr` (data model and role model are unchanged).
+### Local setup
+
+1. Install dependencies and generate the Prisma client:
+   ```bash
+   bun install                # or npm install
+   bun run db:generate        # prisma generate
+   ```
+2. Create a `.env.local` (gitignored — never commit or paste real values into chat) from the
+   names-only template:
+   ```bash
+   cp .env.example .env.local
+   ```
+3. Fill in the two Neon connection strings (see below), then create the schema and seed:
+   ```bash
+   bun run db:migrate:deploy  # apply prisma/migrations to Neon (uses DIRECT_URL)
+   node scripts/generate-art.mjs   # generate all original cover/page/panel art (public/art/**)
+   bun run db:seed            # seed demo content (idempotent — safe to re-run)
+   bun run dev                # http://localhost:3000
+   ```
+
+### Neon environment variables
+
+| Variable | Which Neon url | Used by |
+|---|---|---|
+| `DATABASE_URL` | **Pooled** connection string (hostname contains `-pooler`) | Application runtime — every query (`src/lib/db.ts`) |
+| `DIRECT_URL` | **Direct / non-pooled** connection string (same project & role, no `-pooler`) | Prisma CLI only — `migrate deploy/dev/status/reset`, `studio` |
+| `NEXTAUTH_SECRET` | — (any long random string) | NextAuth session signing |
+| `NEXTAUTH_URL` | — (app origin, e.g. `http://localhost:3000`) | NextAuth |
+
+Copy **both** strings directly from the Neon dashboard (“Connect” → connection details;
+the pooled string is shown when the *Pooled connection* toggle is on). Never hand-edit a
+hostname. Both variables are required — the app and the CLI **fail loudly** if either is
+missing, and there is **no SQLite fallback** (legacy `db/custom.db` is archived, untracked).
+
+### Migrate command
+
+```bash
+bun run db:status          # prisma migrate status — shows applied/pending migrations
+bun run db:migrate:deploy  # apply pending versioned migrations (production-safe; uses DIRECT_URL)
+```
+
+Migrations are versioned SQL files under `prisma/migrations/` (current baseline:
+`20260927220347_init` — enums, tables, indexes, FKs). `prisma db push` is **not** used and its
+script was removed.
+
+For future schema changes in development, prefer generating a new migration and applying it:
+
+```bash
+# generate SQL from schema changes into a new timestamped migration folder (offline):
+npx prisma migrate diff --from-schema-datasource prisma/schema.prisma \
+  --to-schema-datamodel prisma/schema.prisma --script
+# then review the file under prisma/migrations/<timestamp>_<name>/migration.sql and:
+bun run db:migrate:deploy
+```
+
+Note: `prisma migrate dev` (and `migrate reset`) additionally needs a **shadow database**;
+Neon supports this via a dedicated shadow DB (`SHADOW_DATABASE_URL`) or a role with
+`CREATEDB`. If unavailable, use the diff + deploy flow above.
+
+### Seed command
+
+```bash
+bun run db:seed            # idempotent — upserts by slug/email; safe to re-run
+```
+
+Re-running the seed twice produces identical row counts (analytics events are only seeded
+into an empty `AnalyticsEvent` table; demo progress rows are upserted).
+
+### Rollback / recovery
+
+- **Roll back a bad migration:** mark it rolled back and re-apply a fixed one:
+  ```bash
+  bun run db:status
+  npx prisma migrate resolve --rolled-back <migration_name>   # with DIRECT_URL in env
+  ```
+  Then fix the SQL and `bun run db:migrate:deploy` again.
+- **Point-in-time recovery:** Neon retains restore windows per project — restore/branch the
+  Neon project from the dashboard to a pre-migration timestamp, copy the needed data (or
+  re-point `DATABASE_URL`/`DIRECT_URL` at the restored branch for rehearsal).
+- **Re-seed after a wipe:** `bun run db:migrate:deploy && bun run db:seed` restores the full
+  demo state (art files are static under `public/art/`).
+- **Baseline rebuild:** `prisma/migrations/` + `prisma/seed.ts` are the single source of
+  truth; a fresh Neon branch (zero schemas) reaches demo state with those two commands.
+
+### What is enforced where
+
+| Guarantee | Enforced by | Where |
+|---|---|---|
+| Authentication (who you are) | NextAuth credentials + JWT sessions (scrypt hashes) | **Server-side** |
+| Role vocabulary (`reader\|editor\|admin`) | Native Postgres enum `user_role` | **Database-side** |
+| Content workflow (`draft\|review\|published`), format, status, reading direction, event type | Native Postgres enums | **Database-side** |
+| Admin authorization (who may write) | 3 application layers: middleware → admin layout guard → `requireRole` inside every admin Server Action/query | **Server-side** (no RLS) |
+| Public users only see published chapters | `workflow='published'` filters in every public query | **Server-side** (no RLS) |
+| Reading progress belongs to its owner | profile/chapter scoping in queries + Server Actions | **Server-side** (no RLS) |
+| One chapter number per series; one page index per chapter; one progress row per (profile, chapter); unique slugs/emails | Unique constraints / composite unique indexes | **Database-side** |
+| Referential integrity (orphan pages/progress impossible; deleting a series cascades; analytics survive author deletion via `SET NULL`) | Foreign keys with explicit delete rules | **Database-side** |
+| Required fields & defaults | NOT NULL + column defaults | **Database-side** |
+| Input validation before any write | zod schemas in Server Actions | **Server-side** |
+
+This table is the honest post-D-28 enforcement story: **no database-level RLS is enabled**, so
+row-level authorization is application-enforced. The app also fails safely on configuration
+errors: `src/lib/db.ts` throws a clear error (variable names only, never values) if
+`DATABASE_URL` is missing or is not a PostgreSQL url — it can never silently fall back to a
+wrong database.
 
 ## Getting started
 
-```bash
-bun install                # or npm install
-bun run db:push            # create SQLite schema from prisma/schema.prisma
-node scripts/generate-art.mjs   # generate all original cover/page/panel art (public/art/**)
-bun prisma/seed.ts         # seed demo content (idempotent — safe to re-run)
-bun run dev                # http://localhost:3000
-```
-
-`.env`:
-
-```
-DATABASE_URL="file:./db/custom.db"     # SQLite (scaffold default)
-NEXTAUTH_SECRET=<any-long-random-string>
-NEXTAUTH_URL=http://localhost:3000
-```
+See [Database — Neon PostgreSQL](#database--neon-postgresql-runtime) above: `.env.local`
+(holding `DATABASE_URL`, `DIRECT_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`),
+`bun run db:migrate:deploy`, `node scripts/generate-art.mjs`, `bun run db:seed`, `bun run dev`.
 
 ## Demo accounts
 
@@ -99,9 +192,14 @@ Plus: 2 editorial collections, 3 seeded reading-progress rows for the reader acc
 |---|---|
 | `bun run dev` | dev server on :3000 |
 | `bun run lint` | ESLint |
-| `bun run db:push` | push Prisma schema |
-| `bun prisma/seed.ts` | idempotent demo seed |
+| `bun run typecheck` | `tsc --noEmit` |
+| `bun run db:status` | Prisma migration status (Neon) |
+| `bun run db:migrate:deploy` | apply versioned migrations to Neon |
+| `bun run db:seed` | idempotent demo seed into Neon |
+| `bun run db:studio` | Prisma Studio (read/write UI) |
 | `node scripts/generate-art.mjs` | regenerate all demo art |
+| `node scripts/verify-neon-constraints.mjs` | post-migration DB constraint/enum/FK verification |
+| `node scripts/db-failsafe-check.mjs` | verify the app fails safely with missing/wrong DB env vars |
 
 ## QA evidence (Release A exit criteria — browser-verified)
 

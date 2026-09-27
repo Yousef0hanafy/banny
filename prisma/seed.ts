@@ -1,9 +1,11 @@
 /**
- * Bunny Library — idempotent seed (Release A).
- * Run: bun prisma/seed.ts
+ * Bunny Library — idempotent seed (Release A) → Neon PostgreSQL.
+ * Run: bun run db:seed   (or: bun prisma/seed.ts — bun loads .env.local automatically)
  * Upserts by slug/email so re-running is always safe (docs/DECISIONS.md D-21).
+ * Analytics events are seeded only into an empty table (guarded below), so running
+ * the seed twice produces identical row counts.
  */
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma, UserRole, SeriesFormat, SeriesStatus, ChapterWorkflow, ReadingDirection } from "@prisma/client";
 import { scryptSync, randomBytes, timingSafeEqual } from "crypto";
 import { SERIES, COLLECTIONS, DEMO_ACCOUNTS, DEMO_PROGRESS, hashSeed, mulberry32 } from "../scripts/release-a-data.mjs";
 
@@ -26,11 +28,11 @@ async function seedProfiles() {
   for (const acc of DEMO_ACCOUNTS) {
     await db.profile.upsert({
       where: { email: acc.email },
-      update: { nickname: acc.nickname, role: acc.role },
+      update: { nickname: acc.nickname, role: acc.role as UserRole },
       create: {
         email: acc.email,
         nickname: acc.nickname,
-        role: acc.role,
+        role: acc.role as UserRole,
         passwordHash: hashPassword(acc.password),
         avatarSeed: `seed-${hashSeed(acc.email) % 6}`,
         bio: "حساب تجريبي ضمن النسخة التجريبية من مكتبة باني.",
@@ -46,8 +48,8 @@ async function seedSeries() {
       titleAr: s.titleAr,
       titleOriginal: s.titleOriginal,
       synopsisAr: s.synopsisAr,
-      format: s.format,
-      status: s.status,
+      format: s.format as SeriesFormat,
+      status: s.status as SeriesStatus,
       genresJson: JSON.stringify(s.genres),
       tagsJson: JSON.stringify(s.tags),
       author: s.author,
@@ -69,10 +71,10 @@ async function seedSeries() {
         seriesId: series.id,
         number: ch.number,
         titleAr: ch.titleAr,
-        workflow: ch.workflow,
+        workflow: ch.workflow as ChapterWorkflow,
         publishedAt: isPublished ? daysAgo(Math.max(publishedAt, 1)) : null,
         isPremiumDemo: Boolean(ch.isPremiumDemo),
-        readingDirection: s.format === "manga" ? "rtl" : "rtl",
+        readingDirection: (s.format === "manga" ? "rtl" : "rtl") as ReadingDirection,
       };
       const chapter = await db.chapter.upsert({
         where: { seriesId_number: { seriesId: series.id, number: ch.number } },
@@ -157,17 +159,17 @@ async function seedProgress() {
 
 async function seedAnalytics() {
   const existing = await db.analyticsEvent.count();
-  if (existing > 50) return; // idempotent-ish: only seed once
+  if (existing > 0) return; // strictly idempotent: never duplicate demo analytics
   const series = await db.series.findMany();
   const reader = await db.profile.findUnique({ where: { email: "reader@bunny.demo" } });
   const rng = mulberry32(hashSeed("analytics"));
-  const events = [];
+  const events: Prisma.AnalyticsEventCreateManyInput[] = [];
   for (let d = 30; d >= 0; d--) {
     const daily = 6 + Math.floor(rng() * 10);
+    const types = ["read_start", "read_page", "read_page", "read_page", "read_complete"] as const;
     for (let k = 0; k < daily; k++) {
       const s = series[Math.floor(rng() * series.length)];
-      const types = ["read_start", "read_page", "read_page", "read_page", "read_complete"];
-      const type = types[Math.floor(rng() * types.length)];
+      const type: (typeof types)[number] = types[Math.floor(rng() * types.length)];
       events.push({
         type,
         seriesId: s.id,

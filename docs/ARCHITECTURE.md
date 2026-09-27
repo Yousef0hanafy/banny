@@ -96,12 +96,16 @@ analytics_events (type, series_id?, chapter_id?, profile_id?, created_at, meta j
 
 ## 4. Authentication & Role Model
 
-- **Sessions:** `@supabase/ssr` cookie-based; middleware refreshes tokens and gates `/admin` + account routes (cheap redirect layer only).
-- **Roles:** `reader | editor | admin` in `user_roles`; helper SQL functions `has_role(profile_id, role)` / `is_admin()`; role resolved server-side per request (and mirrored on `profiles.role` for cheap joins).
-- **Three-layer admin protection (D-12):** middleware redirect → admin layout server guard (`requireRole`) → RLS policies deny non-admin writes at DB level even if UI is bypassed.
-- **Demo accounts:** seeded admin/editor/reader with documented credentials (README), passwords set via Supabase admin API in seed.
+> **⚠️ D-28 UPDATE (2026-09-28):** runtime is now **Neon PostgreSQL + Prisma + NextAuth** (no Supabase at runtime). Sessions are NextAuth JWT (role in token); passwords are scrypt-hashed in the `Profile` table. The bullets below describe the **superseded Supabase design** and are kept for historical context only.
+
+- **Sessions:** ~~`@supabase/ssr` cookie-based~~ (superseded: NextAuth JWT); middleware refreshes tokens and gates `/admin` + account routes (cheap redirect layer only).
+- **Roles:** `reader | editor | admin` in `user_roles`~~; helper SQL functions `has_role(profile_id, role)` / `is_admin()`~~ (superseded: role stored as native Postgres enum `user_role` on `Profile.role`; resolved server-side from the NextAuth session per request).
+- **Three-layer admin protection (D-12):** middleware redirect → admin layout server guard (`requireRole`) → ~~RLS policies deny non-admin writes at DB level even if UI is bypassed~~ **(superseded by D-28: no database-level RLS exists — the third layer is `requireRole` inside every Server Action / admin query helper, i.e. all three layers are application-level; the database layer enforces enums/FKs/uniques, not row-level authorization)**.
+- **Demo accounts:** seeded admin/editor/reader with documented credentials (README), passwords set via Supabase admin API in seed~~ (superseded: seeded by `prisma/seed.ts` with scrypt hashes into Neon)~~.
 
 ## 5. RLS Policy Matrix (summary — full SQL in Phase 1)
+
+> **⚠️ D-28 SUPERSEDED (2026-09-28) — THIS MATRIX WAS NEVER EXECUTED.** The Supabase/RLS deployment path was never provisioned and the RLS SQL was never run against any database (archived, clearly labeled: `docs/archive/supabase-sql-not-executed/`). **No database-level RLS is enabled on the actual runtime (Neon PostgreSQL).** The enforcement model that actually exists today: (1) application layer — NextAuth session + `requireRole` checks on every admin query/action, published-only filters in every public query; (2) database layer — native enums, foreign keys with explicit delete rules, unique constraints, NOT NULL/defaults (verified post-migration by `scripts/verify-neon-constraints.mjs`). The matrix below is retained only as design history; any future move to true RLS is a new decision.
 
 | Table | anon (SELECT) | reader | editor | admin |
 |---|---|---|---|---|

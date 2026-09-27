@@ -6,7 +6,8 @@ import { db } from "@/lib/db";
 import type { Format, Role, SeriesStatus, Workflow } from "@/lib/constants";
 
 /* ------------------------------------------------------------------ */
-/* Session / role helpers (local demo enforcement of the RLS matrix)  */
+/* Session / role helpers (application-level authorization — there is   */
+/* NO database-level RLS on Neon; see README "What is enforced where") */
 /* ------------------------------------------------------------------ */
 
 export async function getSession() {
@@ -48,7 +49,7 @@ export function parseJsonArray(s: string | null | undefined): string[] {
 }
 
 /* ------------------------------------------------------------------ */
-/* Public catalog queries — published content only (RLS-equivalent)   */
+/* Public catalog queries — published content only (application-layer rule) */
 /* ------------------------------------------------------------------ */
 
 export type SeriesCard = {

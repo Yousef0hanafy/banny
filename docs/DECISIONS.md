@@ -123,6 +123,17 @@ Every key product/technical decision made at the discovery gate, with rationale,
 - **Decision:** Release A build approval does not require the four source documents; **Release B sign-off does**. Reconciliation checklist lives in `CONTRADICTION_REPORT.md` §2; founder decisions in `FOUNDER_DECISIONS.md`.
 - **Rationale:** foundation work (stack, schema, readers, RLS, RTL) is robust to source-doc content; iteration risk is concentrated in feature scope, which lands in B.
 
+### D-28 — Runtime database: Neon PostgreSQL via Prisma (founder-approved 2026-09-28) ✅ adopted
+- **Decision (founder):** migrate Release A from local SQLite to **Neon PostgreSQL** before starting Release B.
+  - Neon is the **actual runtime database**; Prisma remains the ORM **and** migration tool (versioned migrations in `prisma/migrations/`, `db push` script removed); NextAuth remains the authentication layer.
+  - Two connection strings: `DATABASE_URL` = Neon **pooled** url (app runtime, serverless-safe) · `DIRECT_URL` = Neon **direct** (non-pooled) url (Prisma migrations / CLI only). Migration work stops if either url is missing; hostnames are never hand-mutated.
+  - **Supabase is not used at runtime.** The Supabase port + RLS SQL from Phase 0/0.1 is **archived as never-executed** (`docs/archive/supabase-sql-not-executed/`) — none of it was ever applied to a database.
+  - **No database-level RLS is claimed or enabled.** Authorization is enforced at the application layer (middleware → admin layout → `requireRole` in every admin query/action); the database layer enforces enums, foreign keys, unique constraints and NOT NULL/defaults. README documents the exact "enforced server-side vs database-side" split.
+  - SQLite is removed as a runtime dependency (no silent fallback; `src/lib/db.ts` fails loudly on a missing or non-PostgreSQL `DATABASE_URL`). The legacy `db/custom.db` file is untracked and archived.
+  - Secrets discipline: credentials live only in gitignored `.env.local`; `.env.example` documents variable **names only**; no secret is ever printed, logged, committed or echoed (including in error messages).
+- **Schema deltas vs SQLite:** provider `postgresql` + `directUrl`; string-typed vocabularies (`role`, `format`, `status`, `workflow`, `readingDirection`, analytics `type`) became **native Postgres enums** (`user_role`, `series_format`, `series_status`, `chapter_workflow`, `reading_direction`, `analytics_event_type`) — values unchanged, so app-level zod/session validation is untouched. JSON-as-`String` columns kept (jsonb conversion is a Release B candidate; it would touch every reader of `genresJson`/`tagsJson`/`metaJson`/`seriesSlugsJson`).
+- **Rationale:** real multi-environment runtime for Release B/C (serverless-friendly, branchable, no local file state); honest enforcement story (RLS claims that were never executed are removed rather than implied).
+
 ## C. Open Questions (carried, not blocking Phase 1)
 
 | # | Question | Owner | Gate |

@@ -1,24 +1,80 @@
 // Bunny Library — Release A schema (mirrors docs/ARCHITECTURE.md §3, A-scope subset)
-// SQLite for the local demo runtime; the Supabase/Postgres port + RLS policies
-// ship as SQL in /supabase/migrations (see README "Supabase production path").
+// Runtime database: Neon PostgreSQL (founder-approved migration, DECISIONS.md D-28).
+//   - DATABASE_URL → Neon POOLED connection string (application runtime, serverless-safe)
+//   - DIRECT_URL   → Neon DIRECT (non-pooled) connection string (Prisma migrations / CLI)
+// Prisma is the ORM and migration tool (versioned migrations in prisma/migrations);
+// NextAuth remains the authentication layer. Supabase is NOT used at runtime.
+// NOTE: authorization is enforced at the application layer (middleware → admin layout
+// → requireRole on every admin query/action). NO database-level RLS is configured on
+// Neon — see README "What is enforced where" and docs/ARCHITECTURE.md §5 banner.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
-// NOTE: Prisma+SQLite has no enums; string fields are validated in code (src/lib/constants.ts)
+// Native Postgres enums (replaces the SQLite string columns + code validators;
+// constants.ts remains the source of truth for labels, zod schemas and session checks).
+
+enum UserRole {
+  reader
+  editor
+  admin
+
+  @@map("user_role")
+}
+
+enum SeriesFormat {
+  manga
+  webtoon
+
+  @@map("series_format")
+}
+
+enum SeriesStatus {
+  ongoing
+  completed
+  hiatus
+
+  @@map("series_status")
+}
+
+enum ChapterWorkflow {
+  draft
+  review
+  published
+
+  @@map("chapter_workflow")
+}
+
+enum ReadingDirection {
+  rtl
+  ltr
+
+  @@map("reading_direction")
+}
+
+enum AnalyticsEventType {
+  read_start
+  read_page
+  read_complete
+  login
+  publish
+
+  @@map("analytics_event_type")
+}
 
 model Profile {
   id              String            @id @default(cuid())
   email           String            @unique
   nickname        String
   passwordHash    String
-  role            String            @default("reader") // reader | editor | admin
+  role            UserRole          @default(reader)
   avatarSeed      String            @default("v1")
   bio             String?
   createdAt       DateTime          @default(now())
@@ -33,8 +89,8 @@ model Series {
   titleAr       String
   titleOriginal String?
   synopsisAr    String
-  format        String // manga | webtoon
-  status        String            @default("ongoing") // ongoing | completed | hiatus
+  format        SeriesFormat
+  status        SeriesStatus      @default(ongoing)
   genresJson    String            @default("[]")
   tagsJson      String            @default("[]")
   author        String
@@ -54,17 +110,17 @@ model Series {
 }
 
 model Chapter {
-  id               String            @id @default(cuid())
+  id               String           @id @default(cuid())
   seriesId         String
   number           Int
   titleAr          String
-  workflow         String            @default("draft") // draft | review | published
+  workflow         ChapterWorkflow  @default(draft)
   publishedAt      DateTime?
-  isPremiumDemo    Boolean           @default(false)
-  readingDirection String            @default("rtl") // manga pages order: rtl | ltr
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  series           Series            @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  isPremiumDemo    Boolean          @default(false)
+  readingDirection ReadingDirection @default(rtl)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  series           Series           @relation(fields: [seriesId], references: [id], onDelete: Cascade)
   pages            ChapterPage[]
   progress         ReadingProgress[]
 
@@ -100,24 +156,24 @@ model ReadingProgress {
 }
 
 model AnalyticsEvent {
-  id        String   @id @default(cuid())
-  type      String // read_start | read_page | read_complete | login | publish
+  id        String             @id @default(cuid())
+  type      AnalyticsEventType
   seriesId  String?
   chapterId String?
   profileId String?
-  metaJson  String   @default("{}")
-  createdAt DateTime @default(now())
-  profile   Profile? @relation(fields: [profileId], references: [id], onDelete: SetNull)
-  series    Series?  @relation(fields: [seriesId], references: [id], onDelete: SetNull)
+  metaJson  String             @default("{}")
+  createdAt DateTime           @default(now())
+  profile   Profile?           @relation(fields: [profileId], references: [id], onDelete: SetNull)
+  series    Series?            @relation(fields: [seriesId], references: [id], onDelete: SetNull)
 }
 
 model EditorialCollection {
-  id            String  @id @default(cuid())
-  slug          String  @unique
-  titleAr       String
-  descriptionAr String
-  theme         String  @default("violet")
-  displayOrder  Int     @default(0)
-  isFeatured    Boolean @default(false)
-  seriesSlugsJson String @default("[]") // Release A: ordered slugs; normalized join table lands in Release B
+  id              String  @id @default(cuid())
+  slug            String  @unique
+  titleAr         String
+  descriptionAr   String
+  theme           String  @default("violet")
+  displayOrder    Int     @default(0)
+  isFeatured      Boolean @default(false)
+  seriesSlugsJson String  @default("[]") // Release A: ordered slugs; normalized join table lands in Release B
 }

@@ -30,8 +30,12 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files — real values must NEVER be committed (.env.example is the only exception)
 .env*
+!.env.example
+
+# legacy local sqlite artifact (archived — runtime is Neon PostgreSQL)
+/db/
 
 # vercel
 .vercel

@@ -1,4 +1,10 @@
-/** Shared constants & runtime validators for string-typed columns (SQLite/Prisma has no enums). */
+/**
+ * Shared constants for the catalog/role vocabularies.
+ * These values are ALSO enforced at the database level as native Postgres enums
+ * (see prisma/schema.prisma — user_role, series_format, series_status,
+ * chapter_workflow, reading_direction, analytics_event_type). This module remains
+ * the source of truth for Arabic labels, zod schemas and JWT/session validation.
+ */
 
 export const ROLES = ["reader", "editor", "admin"] as const;
 export type Role = (typeof ROLES)[number];
