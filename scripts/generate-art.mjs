@@ -7,6 +7,7 @@
 import sharp from "sharp";
 import { mkdir } from "fs/promises";
 import { SERIES, hashSeed, mulberry32 } from "./release-a-data.mjs";
+import { SERIES_B } from "./release-b-data.mjs";
 
 const PUBLIC = "public/art";
 const COVERS = `${PUBLIC}/covers`;
@@ -101,6 +102,59 @@ function coverSVG(series) {
       <circle cx="405" cy="560" r="14" fill="${a3}"/>
       <path d="M120 900 Q384 830 648 900 L648 1152 L120 1152 Z" fill="${a}" opacity="0.25"/>
       ${specks(rng, 45, "#F4F0E8", w, h, 0.45)}`;
+  } else if (series.motif === "letters") {
+    // Release B — flying envelopes over rooftops (text-free abstraction)
+    motif = `
+      ${Array.from({ length: 7 }, (_, i) => {
+        const ex = 140 + rng() * 440, ey = 200 + i * 90 + rng() * 40, es = 46 + rng() * 34, rot = -14 + rng() * 28;
+        return `<g transform="rotate(${rot.toFixed(0)} ${ex.toFixed(0)} ${ey.toFixed(0)})">
+          <rect x="${(ex - es / 2).toFixed(0)}" y="${(ey - es / 2.6).toFixed(0)}" width="${es.toFixed(0)}" height="${(es * 0.76).toFixed(0)}" rx="4" fill="#F4F0E8" opacity="${(0.55 + rng() * 0.4).toFixed(2)}"/>
+          <path d="M${(ex - es / 2).toFixed(0)} ${(ey - es / 2.6).toFixed(0)} L${ex.toFixed(0)} ${(ey + es * 0.1).toFixed(0)} L${(ex + es / 2).toFixed(0)} ${(ey - es / 2.6).toFixed(0)}" fill="none" stroke="${INK}" stroke-width="2.5" opacity="0.7"/>
+        </g>`;
+      }).join("")}
+      <rect x="120" y="880" width="530" height="180" rx="14" fill="${INK}" opacity="0.9"/>
+      <rect x="150" y="910" width="470" height="14" rx="7" fill="${a}" opacity="0.8"/>
+      <rect x="150" y="940" width="360" height="10" rx="5" fill="${a3}" opacity="0.6"/>
+      ${specks(rng, 40, "#F4F0E8", w, h, 0.45)}`;
+  } else if (series.motif === "dunes") {
+    motif = `
+      <path d="M0 700 Q200 600 420 690 T768 650 L768 1152 L0 1152 Z" fill="${INK}" opacity="0.85"/>
+      <path d="M0 820 Q240 730 480 810 T768 780 L768 1152 L0 1152 Z" fill="${shade(a, 0.5)}" opacity="0.6"/>
+      <circle cx="560" cy="250" r="130" fill="${a}" opacity="0.8"/>
+      <circle cx="560" cy="250" r="190" fill="none" stroke="${a3}" stroke-width="3" opacity="0.4"/>
+      ${Array.from({ length: 9 }, (_, i) => `<path d="M${60 + i * 12} ${880 + i * 14} L${700 - i * 10} ${880 + i * 14}" stroke="${a3}" stroke-width="3" opacity="0.35"/>`).join("")}
+      ${specks(rng, 55, "#F4F0E8", w, 640, 0.5)}`;
+  } else if (series.motif === "train") {
+    motif = `
+      <rect x="90" y="520" width="600" height="240" rx="30" fill="${INK}" opacity="0.92"/>
+      <rect x="130" y="560" width="120" height="80" rx="8" fill="${a3}" opacity="0.9"/>
+      <rect x="290" y="560" width="120" height="80" rx="8" fill="${a}" opacity="0.7"/>
+      <rect x="450" y="560" width="120" height="80" rx="8" fill="${a3}" opacity="0.55"/>
+      <circle cx="210" cy="800" r="34" fill="${INK}" stroke="${a3}" stroke-width="5"/>
+      <circle cx="570" cy="800" r="34" fill="${INK}" stroke="${a3}" stroke-width="5"/>
+      <path d="M40 860 Q400 830 730 860" stroke="${a}" stroke-width="7" fill="none" opacity="0.6"/>
+      ${specks(rng, 50, "#F4F0E8", w, 480, 0.5)}`;
+  } else if (series.motif === "waves") {
+    motif = `
+      <circle cx="384" cy="300" r="110" fill="${a3}" opacity="0.85"/>
+      ${Array.from({ length: 5 }, (_, i) => `<path d="M0 ${620 + i * 90} Q192 ${580 + i * 90} 384 ${620 + i * 90} T768 ${620 + i * 90}" fill="none" stroke="${i % 2 ? a : a3}" stroke-width="9" opacity="${(0.75 - i * 0.12).toFixed(2)}"/>`).join("")}
+      ${Array.from({ length: 20 }, () => `<circle cx="${(rng() * w).toFixed(0)}" cy="${(560 + rng() * 120).toFixed(0)}" r="${(2 + rng() * 4).toFixed(0)}" fill="#F4F0E8" opacity="0.7"/>`).join("")}`;
+  } else if (series.motif === "citadel") {
+    motif = `
+      <rect x="250" y="380" width="270" height="520" fill="${INK}" opacity="0.92"/>
+      <path d="M250 380 L385 260 L520 380 Z" fill="${INK}" opacity="0.92"/>
+      <rect x="340" y="640" width="90" height="260" rx="45" fill="${a}" opacity="0.75"/>
+      <rect x="200" y="470" width="50" height="430" fill="${shade(a, 0.5)}" opacity="0.85"/>
+      <rect x="520" y="440" width="50" height="460" fill="${shade(a, 0.5)}" opacity="0.85"/>
+      ${Array.from({ length: 30 }, () => `<circle cx="${(rng() * w).toFixed(0)}" cy="${(rng() * 350).toFixed(0)}" r="${(1.5 + rng() * 3).toFixed(0)}" fill="#F4F0E8" opacity="0.65"/>`).join("")}`;
+  } else if (series.motif === "tide") {
+    motif = `
+      <path d="M0 560 Q192 500 384 560 T768 560 L768 1152 L0 1152 Z" fill="${a}" opacity="0.5"/>
+      <path d="M0 700 Q192 640 384 700 T768 700 L768 1152 L0 1152 Z" fill="${INK}" opacity="0.8"/>
+      <rect x="320" y="180" width="130" height="130" rx="14" fill="#F4F0E8" opacity="0.9"/>
+      <rect x="340" y="205" width="90" height="10" rx="5" fill="${INK}" opacity="0.7"/>
+      <rect x="340" y="225" width="70" height="8" rx="4" fill="${INK}" opacity="0.5"/>
+      ${Array.from({ length: 14 }, () => `<circle cx="${(rng() * w).toFixed(0)}" cy="${(760 + rng() * 330).toFixed(0)}" r="${(2 + rng() * 5).toFixed(0)}" fill="${a3}" opacity="${(0.35 + rng() * 0.5).toFixed(2)}"/>`).join("")}`;
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
@@ -231,6 +285,14 @@ function webtoonPanelSVG(series, chapter, panelIdx, total) {
       <rect x="420" y="${(180 + t * 60).toFixed(0)}" width="200" height="540" rx="12" fill="${aDark}" opacity="0.85"/>
       <path d="M280 ${560 + t * 40} Q400 ${460 + t * 40} 520 ${560 + t * 40}" stroke="${a3}" stroke-width="8" fill="none" opacity="0.7"/>
       ${Array.from({ length: 10 }, () => `<circle cx="${(200 + rng() * 400).toFixed(0)}" cy="${(220 + rng() * 500).toFixed(0)}" r="${(3 + rng() * 6).toFixed(0)}" fill="${a3}" opacity="${(0.25 + rng() * 0.45).toFixed(2)}"/>`).join("")}`;
+  } else if (series.motif === "tide") {
+    scene = `
+      <path d="M0 ${(620 + t * 60).toFixed(0)} Q200 ${(560 + t * 60).toFixed(0)} 400 ${(620 + t * 60).toFixed(0)} T800 ${(620 + t * 60).toFixed(0)} L800 1100 L0 1100 Z" fill="${aDark}" opacity="0.85"/>
+      <path d="M0 ${(780 + t * 40).toFixed(0)} Q200 ${(730 + t * 40).toFixed(0)} 400 ${(780 + t * 40).toFixed(0)} T800 ${(780 + t * 40).toFixed(0)} L800 1100 L0 1100 Z" fill="${INK}" opacity="0.9"/>
+      <circle cx="${(180 + t * 440).toFixed(0)}" cy="280" r="105" fill="${a3}" opacity="0.85"/>
+      <rect x="${(140 + t * 80).toFixed(0)}" y="${(430 - t * 80).toFixed(0)}" width="160" height="110" rx="10" fill="#F4F0E8" opacity="0.9" transform="rotate(${(-6 + t * 12).toFixed(0)} ${(220 + t * 80).toFixed(0)} 485)"/>
+      ${Array.from({ length: 16 }, () => `<circle cx="${(rng() * w).toFixed(0)}" cy="${(640 + rng() * 420).toFixed(0)}" r="${(2 + rng() * 4).toFixed(0)}" fill="${a3}" opacity="${(0.3 + rng() * 0.5).toFixed(2)}"/>`).join("")}
+      ${specks(rng, 45, "#F4F0E8", w, 560, 0.5)}`;
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
@@ -259,9 +321,10 @@ async function main() {
   await mkdir(PANELS, { recursive: true });
 
   let count = 0;
-  for (const s of SERIES) {
+  for (const s of [...SERIES, ...SERIES_B]) {
     await render(coverSVG(s), `${COVERS}/${s.slug}.webp`);
     count++;
+    if (s.format === "novel") continue; // novels carry prose, no pages/panels
     for (const ch of s.chapters) {
       // Generate art for ALL chapters (incl. draft/review) so admin publishing works instantly.
       if (s.format === "manga") {

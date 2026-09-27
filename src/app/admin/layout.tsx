@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { BookOpenText, ExternalLink, LayoutDashboard, LibraryBig, ListOrdered, LogOut, ShieldAlert } from "lucide-react";
+import { BookOpenText, ExternalLink, GalleryVerticalEnd, LayoutDashboard, LibraryBig, ListOrdered, LogOut, MessageSquareWarning, ShieldAlert, UsersRound } from "lucide-react";
 import { getSession } from "@/lib/queries";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin", label: "اللوحة", icon: LayoutDashboard },
     { href: "/admin/series", label: "الأعمال", icon: LibraryBig },
     { href: "/admin/chapters", label: "الفصول", icon: ListOrdered },
+    { href: "/admin/moderation", label: "الإشراف", icon: MessageSquareWarning },
+    { href: "/admin/collections", label: "المجموعات", icon: GalleryVerticalEnd },
+    ...(role === "admin" ? [{ href: "/admin/users", label: "المستخدمون", icon: UsersRound }] : []),
   ];
 
   return (

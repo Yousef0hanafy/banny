@@ -6,10 +6,11 @@ import { LogOut, Loader2, Plus, Search } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { updateChapterMeta, upsertSeries, createChapter } from "@/lib/actions";
-import { FORMATS, FORMAT_LABELS, GENRES, SERIES_STATUSES, STATUS_LABELS, WORKFLOWS, WORKFLOW_LABELS } from "@/lib/constants";
+import { FORMATS, FORMAT_LABELS, GENRES, SERIES_STATUSES, STATUS_LABELS, WORKFLOWS, WORKFLOW_LABELS, type Format } from "@/lib/constants";
 
 export function AdminLogoutButton({ compact = false }: { compact?: boolean }) {
   return (
@@ -81,7 +82,7 @@ type SeriesFormValues = {
   titleOriginal: string;
   slug: string;
   synopsisAr: string;
-  format: "manga" | "webtoon";
+  format: Format;
   status: "ongoing" | "completed" | "hiatus";
   author: string;
   translator: string;
@@ -242,6 +243,7 @@ type ChapterRow = {
   titleAr: string;
   workflow: "draft" | "review" | "published";
   isPremiumDemo: boolean;
+  scheduledFor?: string | null;
 };
 
 export function ChapterWorkflowControls({ chapter }: { chapter: ChapterRow }) {
@@ -271,6 +273,25 @@ export function ChapterWorkflowControls({ chapter }: { chapter: ChapterRow }) {
     }
   }
 
+  async function schedule(value: string) {
+    setLoading("schedule");
+    const res = await updateChapterMeta({
+      id: chapter.id,
+      scheduledFor: value ? new Date(value).toISOString() : null,
+    });
+    setLoading(null);
+    if (res.ok) {
+      toast({ title: value ? "تمت الجدولة" : "أُلغيت الجدولة", description: value ? undefined : "ينشر الفصل فورًا مع بقائه منشورًا" });
+      router.refresh();
+    } else {
+      toast({ title: "تعذّر التحديث", description: res.error, variant: "destructive" });
+    }
+  }
+
+  const scheduleValue = chapter.scheduledFor
+    ? new Date(chapter.scheduledFor).toISOString().slice(0, 16)
+    : "";
+
   return (
     <div className="flex flex-wrap items-center justify-end gap-1.5">
       <Select value={chapter.workflow} onValueChange={(v) => set(v as ChapterRow["workflow"])}>
@@ -291,12 +312,22 @@ export function ChapterWorkflowControls({ chapter }: { chapter: ChapterRow }) {
       >
         {chapter.isPremiumDemo ? "مقفل" : "قفل تجريبي"}
       </Button>
+      <input
+        type="datetime-local"
+        value={scheduleValue}
+        onChange={(e) => schedule(e.target.value)}
+        disabled={loading === "schedule"}
+        aria-label={`جدولة نشر الفصل ${chapter.number}`}
+        title="جدولة النشر — فارغ يعني نشرًا فوريًا"
+        className="h-8 rounded-md border border-border bg-card px-2 text-[11px] text-muted-foreground"
+        dir="ltr"
+      />
       {loading && loading !== "premium" && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden />}
     </div>
   );
 }
 
-export function ChapterForm({ seriesOptions }: { seriesOptions: { id: string; titleAr: string; format: "manga" | "webtoon" }[] }) {
+export function ChapterForm({ seriesOptions }: { seriesOptions: { id: string; titleAr: string; format: Format }[] }) {
   const router = useRouter();
   const { toast } = useToast();
   const [seriesId, setSeriesId] = useState(seriesOptions[0]?.id ?? "");
@@ -306,11 +337,14 @@ export function ChapterForm({ seriesOptions }: { seriesOptions: { id: string; ti
   const [isPremiumDemo, setIsPremiumDemo] = useState(false);
   const [readingDirection, setReadingDirection] = useState<"rtl" | "ltr">("rtl");
   const [pageCount, setPageCount] = useState("8");
+  const [scheduledAt, setScheduledAt] = useState(""); // datetime-local, optional
+  const [novelBody, setNovelBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const selected = seriesOptions.find((s) => s.id === seriesId);
   const isManga = selected?.format === "manga";
+  const isNovel = selected?.format === "novel";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -324,13 +358,18 @@ export function ChapterForm({ seriesOptions }: { seriesOptions: { id: string; ti
       isPremiumDemo,
       readingDirection: isManga ? readingDirection : "rtl",
       pageCount: Number(pageCount),
+      scheduledFor: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+      novelBody: isNovel ? novelBody : undefined,
     });
     setLoading(false);
     if (!res.ok) {
       setError(res.error ?? "حدث خطأ");
       return;
     }
-    toast({ title: "أُنشئ الفصل", description: "أُضيف الفصل مع صفحات تجريبية مجردة." });
+    toast({
+      title: "أُنشئ الفصل",
+      description: isNovel ? "أُضيف الفصل النصي." : scheduledAt ? "أُضيف الفصل ومُجدول للنشر." : "أُضيف الفصل مع صفحات تجريبية مجردة.",
+    });
     router.push("/admin/chapters");
     router.refresh();
   }
@@ -387,7 +426,34 @@ export function ChapterForm({ seriesOptions }: { seriesOptions: { id: string; ti
             </Select>
           </div>
         )}
+        {!isNovel && (
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">جدولة النشر (اختياري)</label>
+            <Input
+              type="datetime-local"
+              value={scheduledAt}
+              onChange={(e) => setScheduledAt(e.target.value)}
+              className="bg-card"
+              dir="ltr"
+            />
+            <p className="text-[11px] text-muted-foreground">الفصول المجدولة تظهر للقراء بشارة «ينشر قريبًا» حتى موعدها.</p>
+          </div>
+        )}
       </div>
+      {isNovel && (
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">نص الفصل *</label>
+          <Textarea
+            value={novelBody}
+            onChange={(e) => setNovelBody(e.target.value)}
+            rows={10}
+            required
+            className="bg-card leading-8"
+            placeholder="اكتب فصول الرواية هنا… (فقرات مفصولة بأسطر جديدة)"
+          />
+          <p className="text-[11px] text-muted-foreground">{novelBody.split(/\s+/).filter(Boolean).length} كلمة — كل سطر جديد يبدأ فقرة.</p>
+        </div>
+      )}
       <label className="flex items-center gap-2.5 text-sm">
         <input type="checkbox" checked={isPremiumDemo} onChange={(e) => setIsPremiumDemo(e.target.checked)} className="size-4 accent-[var(--primary)]" />
         فصل تجريبي مقفل (لعرض حالة الفصول المميزة — بلا شراء)

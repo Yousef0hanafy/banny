@@ -1,15 +1,31 @@
 # مكتبة باني — Bunny Library
 
 > Your personal Arabic library for stories worth getting lost in.
-> **Release A — Foundation and Core Proof** (see `docs/RELEASE_PLAN.md`)
+> **Release B — Complete Demo Experience** (see `docs/RELEASE_PLAN.md`)
 
-An Arabic-first, dark-mode, premium reading platform prototype for manga and webtoons — reader-first, RTL-native, fully functional, seeded with 100% original fictional content.
+An Arabic-first, dark-mode, premium reading platform prototype for manga, webtoons, and novels — reader-first, RTL-native, fully functional, seeded with 100% original fictional content.
 
-**Demo notice (binding):** this is a product prototype. All series, chapters, covers, names, and comments are original fictional content created for the demo. Nothing is licensed, official, or real. No payments. No downloads. No purchase flows.
+**Demo notice (binding):** this is a product prototype. All series, chapters, covers, names, prose, and comments are original fictional content created for the demo. Nothing is licensed, official, or real. No payments. No downloads. No purchase flows.
 
 ---
 
-## What's in Release A
+## What's in Release B (adds to Release A)
+
+| Surface | Routes |
+|---|---|
+| **Novel reader** — RTL prose, font-size + dark/sepia/light themes (persisted), scroll progress | `/read/novel/[series]/[chapter]` |
+| **Personal library** (4 shelf tabs, unread badges, mark-all-read, shelf switching) | `/library` |
+| **Updates feed** — latest chapters of library series, read/unread | `/updates` |
+| **Full profile** — stats, favorite genres, recent reading, activity log, settings | `/profile` |
+| **Community** — comments (series + chapter scope), report flow, 5-star ratings with live aggregates | on `/series/[slug]` + readers |
+| **Admin: moderation queue** (flagged/hidden comments, hide/restore/delete) | `/admin/moderation` |
+| **Admin: collections CRUD** (feature-on-home, theme, ordering, series picker) | `/admin/collections` |
+| **Admin: users & roles** (admin-only, self-demotion guard) | `/admin/users` |
+| **Admin dashboard** — 14-day activity chart + community pulse cards | `/admin` |
+| **Chapter scheduler** — schedule publishing (`scheduledFor`), public "ينشر قريبًا" badge | chapter forms + series pages |
+| **Seed 6 → 12 series** — incl. 4 novels with original Arabic prose, 24 comments, 21 ratings, reports, demo library | `npm run db:seed` |
+
+## What was in Release A
 
 | Surface | Routes |
 |---|---|
@@ -19,11 +35,10 @@ An Arabic-first, dark-mode, premium reading platform prototype for manga and web
 | Webtoon reader (vertical continuous, progress, immersive mode) | `/read/webtoon/[series]/[chapter]` |
 | Manga reader (paged, RTL/LTR toggle, page slider, keyboard nav, immersive mode) | `/read/manga/[series]/[chapter]` |
 | Auth (demo credentials login) | `/login` |
-| Basic account page (full profile ships in Release B) | `/profile` |
 | Admin (guarded): dashboard-lite, series list/create/edit, chapters manager with draft→review→published workflow + publish/unpublish, chapter creation | `/admin`, `/admin/series`, `/admin/series/new`, `/admin/series/[id]`, `/admin/chapters`, `/admin/chapters/new` |
 | 404 (Arabic) | any unknown route |
 
-**Deferred to Release B/C** (intentionally absent here): novel reader, library/updates pages, comments/ratings/moderation, collections admin, dashboard analytics charts, scheduler UI, monitoring, full profile.
+**Deferred to Release C**: responsive/RTL audit, error/empty-state sweep, monitoring placeholders, accessibility baseline, security audit, deployment runbook.
 
 ## Tech stack
 

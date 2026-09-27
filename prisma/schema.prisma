@@ -1,5 +1,5 @@
-// Bunny Library — Release A schema (mirrors docs/ARCHITECTURE.md §3, A-scope subset)
-// Runtime database: Neon PostgreSQL (founder-approved migration, DECISIONS.md D-28).
+// Bunny Library — Release A+B schema (mirrors docs/ARCHITECTURE.md §3; B adds novels,
+// library, community). Runtime database: Neon PostgreSQL (founder-approved migration, DECISIONS.md D-28).
 //   - DATABASE_URL → Neon POOLED connection string (application runtime, serverless-safe)
 //   - DIRECT_URL   → Neon DIRECT (non-pooled) connection string (Prisma migrations / CLI)
 // Prisma is the ORM and migration tool (versioned migrations in prisma/migrations);
@@ -32,6 +32,7 @@ enum UserRole {
 enum SeriesFormat {
   manga
   webtoon
+  novel
 
   @@map("series_format")
 }
@@ -69,6 +70,23 @@ enum AnalyticsEventType {
   @@map("analytics_event_type")
 }
 
+// Release B — library shelves and community moderation states
+enum LibraryShelf {
+  reading
+  plan
+  finished
+
+  @@map("library_shelf")
+}
+
+enum CommentStatus {
+  visible
+  flagged
+  hidden
+
+  @@map("comment_status")
+}
+
 model Profile {
   id              String            @id @default(cuid())
   email           String            @unique
@@ -81,6 +99,10 @@ model Profile {
   updatedAt       DateTime          @updatedAt
   readingProgress ReadingProgress[]
   events          AnalyticsEvent[]
+  libraryItems    LibraryItem[]
+  comments        Comment[]
+  commentReports  CommentReport[]
+  ratings         Rating[]
 }
 
 model Series {
@@ -107,6 +129,9 @@ model Series {
   chapters      Chapter[]
   progress      ReadingProgress[]
   events        AnalyticsEvent[]
+  libraryItems  LibraryItem[]
+  comments      Comment[]
+  ratings       Rating[]
 }
 
 model Chapter {
@@ -116,13 +141,16 @@ model Chapter {
   titleAr          String
   workflow         ChapterWorkflow  @default(draft)
   publishedAt      DateTime?
+  scheduledFor     DateTime?
   isPremiumDemo    Boolean          @default(false)
   readingDirection ReadingDirection @default(rtl)
+  novelBody        String?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   series           Series           @relation(fields: [seriesId], references: [id], onDelete: Cascade)
   pages            ChapterPage[]
   progress         ReadingProgress[]
+  comments         Comment[]
 
   @@unique([seriesId, number])
 }
@@ -175,5 +203,64 @@ model EditorialCollection {
   theme           String  @default("violet")
   displayOrder    Int     @default(0)
   isFeatured      Boolean @default(false)
-  seriesSlugsJson String  @default("[]") // Release A: ordered slugs; normalized join table lands in Release B
+  seriesSlugsJson String  @default("[]") // ordered slugs; normalized join table deferred (prototype scope)
+}
+
+// ─── Release B — personal library, community, ratings ───
+
+model LibraryItem {
+  id        String       @id @default(cuid())
+  profileId String
+  seriesId  String
+  shelf     LibraryShelf @default(reading)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  profile   Profile      @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  series    Series       @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, seriesId])
+}
+
+model Comment {
+  id        String        @id @default(cuid())
+  profileId String
+  seriesId  String
+  chapterId String?
+  body      String
+  status    CommentStatus @default(visible)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  profile   Profile       @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  series    Series        @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+  chapter   Chapter?      @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  reports   CommentReport[]
+
+  @@index([seriesId, status])
+  @@index([chapterId])
+  @@index([profileId])
+}
+
+model CommentReport {
+  id        String   @id @default(cuid())
+  commentId String
+  profileId String
+  reasonAr  String?
+  createdAt DateTime @default(now())
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, profileId])
+}
+
+model Rating {
+  id        String   @id @default(cuid())
+  profileId String
+  seriesId  String
+  value     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  series    Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, seriesId])
 }

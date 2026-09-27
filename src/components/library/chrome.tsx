@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { BookOpenText, Compass, Library, Search, Menu, LogOut, ShieldCheck, UserRound } from "lucide-react";
+import { BookOpenText, BookMarked, Compass, Library, Search, Menu, LogOut, ShieldCheck, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -45,6 +45,12 @@ export function SiteHeader() {
           </Button>
           <Button asChild variant="ghost" size="sm" className={pathname === "/explore" ? "text-foreground bg-accent" : "text-muted-foreground"}>
             <Link href="/explore">استكشف</Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm" className={pathname === "/library" ? "text-foreground bg-accent" : "text-muted-foreground"}>
+            <Link href="/library">المكتبة</Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm" className={pathname === "/updates" ? "text-foreground bg-accent" : "text-muted-foreground"}>
+            <Link href="/updates">التحديثات</Link>
           </Button>
         </nav>
 
@@ -113,6 +119,8 @@ export function BottomNav() {
   const items = [
     { href: "/", label: "الرئيسية", icon: BookOpenText },
     { href: "/explore", label: "استكشف", icon: Compass },
+    { href: "/library", label: "المكتبة", icon: Library },
+    { href: "/updates", label: "التحديثات", icon: BookMarked },
     { href: status ? "/profile" : "/login", label: status ? "حسابي" : "دخول", icon: UserRound },
   ];
   if (pathname.startsWith("/admin") || pathname.startsWith("/read/")) return null;
@@ -121,7 +129,7 @@ export function BottomNav() {
       className="fixed inset-x-0 bottom-0 z-40 border-t border-border/60 bg-background/90 backdrop-blur-md md:hidden pb-[env(safe-area-inset-bottom)]"
       aria-label="التنقل السفلي"
     >
-      <div className="grid grid-cols-3">
+      <div className="grid grid-cols-5">
         {items.map((it) => {
           const active = it.href === "/" ? pathname === "/" : pathname.startsWith(it.href);
           return (
@@ -162,6 +170,8 @@ export function SiteFooter() {
               <ul className="space-y-1.5 text-muted-foreground">
                 <li><Link className="hover:text-foreground" href="/">الرئيسية</Link></li>
                 <li><Link className="hover:text-foreground" href="/explore">استكشف</Link></li>
+                <li><Link className="hover:text-foreground" href="/library">مكتبتي</Link></li>
+                <li><Link className="hover:text-foreground" href="/updates">التحديثات</Link></li>
               </ul>
             </div>
             <div>

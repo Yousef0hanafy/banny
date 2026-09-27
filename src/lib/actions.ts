@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { currentProfileOrNull } from "@/lib/queries";
 import { revalidatePath } from "next/cache";
-import { isWorkflow, type Workflow } from "@/lib/constants";
+import { isWorkflow, isRole, type Workflow, type Role } from "@/lib/constants";
 
 /* ------------------------------------------------------------------ */
 /* Reading progress (authenticated readers; guests mirror locally)     */
@@ -80,7 +80,7 @@ const seriesSchema = z.object({
     .min(2)
     .regex(/^[a-z0-9-]+$/, "المعرّف: أحرف لاتينية صغيرة وأرقام وشرطات فقط"),
   synopsisAr: z.string().min(20, "الملخص قصير جدًا (٢٠ حرفًا على الأقل)"),
-  format: z.enum(["manga", "webtoon"]),
+  format: z.enum(["manga", "webtoon", "novel"]),
   status: z.enum(["ongoing", "completed", "hiatus"]),
   author: z.string().min(2, "المؤلف مطلوب"),
   translator: z.string().optional(),
@@ -141,6 +141,7 @@ const chapterMetaSchema = z.object({
   workflow: z.enum(["draft", "review", "published"]).optional(),
   isPremiumDemo: z.boolean().optional(),
   readingDirection: z.enum(["rtl", "ltr"]).optional(),
+  scheduledFor: z.string().datetime({ offset: true }).nullable().optional(),
 });
 
 export async function updateChapterMeta(input: unknown): Promise<ActionResult> {
@@ -157,11 +158,17 @@ export async function updateChapterMeta(input: unknown): Promise<ActionResult> {
   if (!chapter) return { ok: false, error: "not_found" };
 
   const data: Record<string, unknown> = { ...patch };
+  if (patch.scheduledFor !== undefined) {
+    const when = patch.scheduledFor ? new Date(patch.scheduledFor) : null;
+    if (when && Number.isNaN(when.getTime())) return { ok: false, error: "invalid" };
+    data.scheduledFor = when;
+  }
   if (patch.workflow === "published" && chapter.workflow !== "published" && !chapter.publishedAt) {
     data.publishedAt = new Date();
   }
   if (patch.workflow && patch.workflow !== "published") {
     data.publishedAt = null;
+    data.scheduledFor = null;
   }
   await db.chapter.update({ where: { id }, data });
 
@@ -194,6 +201,8 @@ const createChapterSchema = z.object({
   isPremiumDemo: z.boolean(),
   readingDirection: z.enum(["rtl", "ltr"]),
   pageCount: z.number().int().min(1).max(30),
+  scheduledFor: z.string().datetime({ offset: true }).nullable().optional(),
+  novelBody: z.string().max(60000).optional(),
 });
 
 export async function createChapter(input: unknown): Promise<ActionResult & { id?: string }> {
@@ -222,10 +231,19 @@ export async function createChapter(input: unknown): Promise<ActionResult & { id
       titleAr: d.titleAr,
       workflow: d.workflow,
       publishedAt: d.workflow === "published" ? new Date() : null,
+      scheduledFor: d.scheduledFor ? new Date(d.scheduledFor) : null,
       isPremiumDemo: d.isPremiumDemo,
       readingDirection: d.readingDirection,
+      novelBody: d.novelBody ?? null,
     },
   });
+
+  // Novel chapters carry prose instead of generated pages.
+  if (series.format === "novel") {
+    revalidatePath("/admin/chapters");
+    revalidatePath(`/series/${series.slug}`);
+    return { ok: true, id: chapter.id };
+  }
 
   // Placeholder abstract pages (deterministic per chapter) — real uploads land in Release B.
   const isManga = series.format === "manga";
@@ -287,5 +305,263 @@ export async function setWorkflowBulk(ids: string[], workflow: Workflow): Promis
   }
   revalidatePath("/admin/chapters");
   revalidatePath("/");
+  return { ok: true };
+}
+
+/* ------------------------------------------------------------------ */
+/* Release B — library, community, ratings, moderation, admin CRUD     */
+/* ------------------------------------------------------------------ */
+
+const librarySchema = z.object({
+  seriesSlug: z.string().min(1),
+  shelf: z.enum(["reading", "plan", "finished"]).nullable(), // null = remove
+});
+
+export async function setLibraryItem(input: unknown): Promise<ActionResult> {
+  const profile = await currentProfileOrNull();
+  if (!profile) return { ok: false, error: "unauthenticated" };
+  const parsed = librarySchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "invalid" };
+  const { seriesSlug, shelf } = parsed.data;
+  const series = await db.series.findUnique({ where: { slug: seriesSlug }, select: { id: true, slug: true } });
+  if (!series) return { ok: false, error: "not_found" };
+
+  if (shelf === null) {
+    await db.libraryItem.deleteMany({ where: { profileId: profile.id, seriesId: series.id } });
+  } else {
+    await db.libraryItem.upsert({
+      where: { profileId_seriesId: { profileId: profile.id, seriesId: series.id } },
+      update: { shelf },
+      create: { profileId: profile.id, seriesId: series.id, shelf },
+    });
+  }
+  revalidatePath("/library");
+  revalidatePath(`/series/${series.slug}`);
+  revalidatePath("/profile");
+  return { ok: true };
+}
+
+export async function markSeriesRead(seriesSlug: string): Promise<ActionResult> {
+  const profile = await currentProfileOrNull();
+  if (!profile) return { ok: false, error: "unauthenticated" };
+  const series = await db.series.findUnique({ where: { slug: seriesSlug } });
+  if (!series) return { ok: false, error: "not_found" };
+  const now = new Date();
+  const chapters = await db.chapter.findMany({
+    where: { seriesId: series.id, workflow: "published", OR: [{ scheduledFor: null }, { scheduledFor: { lte: now } }] },
+    select: { id: true },
+  });
+  for (const c of chapters) {
+    await db.readingProgress.upsert({
+      where: { profileId_chapterId: { profileId: profile.id, chapterId: c.id } },
+      update: { completed: true, percent: 100 },
+      create: { profileId: profile.id, seriesId: series.id, chapterId: c.id, pageIndex: 0, percent: 100, completed: true },
+    });
+  }
+  revalidatePath("/library");
+  revalidatePath("/updates");
+  revalidatePath(`/series/${series.slug}`);
+  return { ok: true };
+}
+
+const commentSchema = z.object({
+  seriesSlug: z.string().min(1),
+  chapterNumber: z.number().int().min(1).nullable().optional(),
+  body: z.string().trim().min(2, "التعليق قصير جدًا").max(2000, "التعليق طويل جدًا"),
+});
+
+export async function postComment(input: unknown): Promise<ActionResult> {
+  const profile = await currentProfileOrNull();
+  if (!profile) return { ok: false, error: "unauthenticated" };
+  const parsed = commentSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "invalid" };
+  const { seriesSlug, chapterNumber, body } = parsed.data;
+  const series = await db.series.findUnique({ where: { slug: seriesSlug }, select: { id: true, slug: true } });
+  if (!series) return { ok: false, error: "not_found" };
+  let chapterId: string | null = null;
+  if (chapterNumber) {
+    const now = new Date();
+    const chapter = await db.chapter.findFirst({
+      where: { seriesId: series.id, number: chapterNumber, workflow: "published", OR: [{ scheduledFor: null }, { scheduledFor: { lte: now } }] },
+      select: { id: true },
+    });
+    if (!chapter) return { ok: false, error: "not_found" };
+    chapterId = chapter.id;
+  }
+  await db.comment.create({ data: { profileId: profile.id, seriesId: series.id, chapterId, body } });
+  revalidatePath(`/series/${series.slug}`);
+  return { ok: true };
+}
+
+const reportSchema = z.object({
+  commentId: z.string().min(1),
+  reasonAr: z.string().trim().max(500).optional(),
+});
+
+export async function reportComment(input: unknown): Promise<ActionResult> {
+  const profile = await currentProfileOrNull();
+  if (!profile) return { ok: false, error: "unauthenticated" };
+  const parsed = reportSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "invalid" };
+  const comment = await db.comment.findUnique({ where: { id: parsed.data.commentId }, select: { id: true, status: true, seriesId: true } });
+  if (!comment) return { ok: false, error: "not_found" };
+  await db.commentReport.upsert({
+    where: { commentId_profileId: { commentId: comment.id, profileId: profile.id } },
+    update: { reasonAr: parsed.data.reasonAr ?? null },
+    create: { commentId: comment.id, profileId: profile.id, reasonAr: parsed.data.reasonAr ?? null },
+  });
+  if (comment.status === "visible") {
+    await db.comment.update({ where: { id: comment.id }, data: { status: "flagged" } });
+  }
+  revalidatePath("/admin/moderation");
+  return { ok: true };
+}
+
+const ratingSchema = z.object({
+  seriesSlug: z.string().min(1),
+  value: z.number().int().min(1).max(5),
+});
+
+export async function setRating(input: unknown): Promise<ActionResult & { ratingAvg?: number; ratingCount?: number }> {
+  const profile = await currentProfileOrNull();
+  if (!profile) return { ok: false, error: "unauthenticated" };
+  const parsed = ratingSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "invalid" };
+  const series = await db.series.findUnique({ where: { slug: parsed.data.seriesSlug }, select: { id: true, slug: true } });
+  if (!series) return { ok: false, error: "not_found" };
+  await db.rating.upsert({
+    where: { profileId_seriesId: { profileId: profile.id, seriesId: series.id } },
+    update: { value: parsed.data.value },
+    create: { profileId: profile.id, seriesId: series.id, value: parsed.data.value },
+  });
+  const agg = await db.rating.aggregate({ where: { seriesId: series.id }, _avg: { value: true }, _count: { _all: true } });
+  const ratingAvg = Math.round((agg._avg.value ?? 0) * 10) / 10;
+  const ratingCount = agg._count._all;
+  await db.series.update({ where: { id: series.id }, data: { ratingAvg, ratingCount } });
+  revalidatePath(`/series/${series.slug}`);
+  return { ok: true, ratingAvg, ratingCount };
+}
+
+const profileSchema = z.object({
+  nickname: z.string().trim().min(2, "الاسم قصير جدًا").max(40),
+  bio: z.string().trim().max(300).optional(),
+});
+
+export async function updateProfile(input: unknown): Promise<ActionResult> {
+  const profile = await currentProfileOrNull();
+  if (!profile) return { ok: false, error: "unauthenticated" };
+  const parsed = profileSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "invalid" };
+  await db.profile.update({
+    where: { id: profile.id },
+    data: { nickname: parsed.data.nickname, bio: parsed.data.bio || null },
+  });
+  revalidatePath("/profile");
+  return { ok: true };
+}
+
+/* --- moderation (editor+) --- */
+
+const moderationSchema = z.object({
+  commentId: z.string().min(1),
+  status: z.enum(["visible", "hidden"]),
+});
+
+export async function moderateComment(input: unknown): Promise<ActionResult> {
+  try {
+    await requireEditor();
+  } catch {
+    return { ok: false, error: "forbidden" };
+  }
+  const parsed = moderationSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "invalid" };
+  const comment = await db.comment.findUnique({ where: { id: parsed.data.commentId }, select: { series: { select: { slug: true } } } });
+  if (!comment) return { ok: false, error: "not_found" };
+  await db.comment.update({ where: { id: parsed.data.commentId }, data: { status: parsed.data.status } });
+  revalidatePath("/admin/moderation");
+  revalidatePath(`/series/${comment.series.slug}`);
+  return { ok: true };
+}
+
+export async function deleteComment(input: unknown): Promise<ActionResult> {
+  try {
+    await requireEditor();
+  } catch {
+    return { ok: false, error: "forbidden" };
+  }
+  const parsed = z.object({ commentId: z.string().min(1) }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: "invalid" };
+  await db.comment.delete({ where: { id: parsed.data.commentId } });
+  revalidatePath("/admin/moderation");
+  revalidatePath("/");
+  return { ok: true };
+}
+
+/* --- collections CRUD (editor+) --- */
+
+const collectionSchema = z.object({
+  id: z.string().optional(),
+  slug: z.string().min(2).regex(/^[a-z0-9-]+$/, "المعرّف: أحرف لاتينية صغيرة وأرقام وشرطات فقط"),
+  titleAr: z.string().min(2, "العنوان مطلوب"),
+  descriptionAr: z.string().min(10, "الوصف قصير جدًا"),
+  theme: z.enum(["violet", "gold", "emerald", "rose"]),
+  displayOrder: z.number().int().min(0).max(99),
+  isFeatured: z.boolean(),
+  seriesSlugs: z.array(z.string()).max(12),
+});
+
+export async function upsertCollection(input: unknown): Promise<ActionResult> {
+  try {
+    await requireEditor();
+  } catch {
+    return { ok: false, error: "forbidden" };
+  }
+  const parsed = collectionSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "invalid" };
+  const d = parsed.data;
+  const data = {
+    slug: d.slug,
+    titleAr: d.titleAr,
+    descriptionAr: d.descriptionAr,
+    theme: d.theme,
+    displayOrder: d.displayOrder,
+    isFeatured: d.isFeatured,
+    seriesSlugsJson: JSON.stringify(d.seriesSlugs),
+  };
+  if (d.id) {
+    await db.editorialCollection.update({ where: { id: d.id }, data });
+  } else {
+    const exists = await db.editorialCollection.findUnique({ where: { slug: d.slug } });
+    if (exists) return { ok: false, error: "المعرّف مستخدم" };
+    await db.editorialCollection.create({ data });
+  }
+  revalidatePath("/admin/collections");
+  revalidatePath("/");
+  return { ok: true };
+}
+
+export async function deleteCollection(id: string): Promise<ActionResult> {
+  try {
+    await requireEditor();
+  } catch {
+    return { ok: false, error: "forbidden" };
+  }
+  await db.editorialCollection.delete({ where: { id } });
+  revalidatePath("/admin/collections");
+  revalidatePath("/");
+  return { ok: true };
+}
+
+/* --- users & roles (admin only) --- */
+
+export async function setUserRole(profileId: string, role: Role): Promise<ActionResult> {
+  const me = await currentProfileOrNull();
+  if (!me || me.role !== "admin") return { ok: false, error: "forbidden" };
+  if (!isRole(role)) return { ok: false, error: "invalid" };
+  if (profileId === me.id && role !== "admin") return { ok: false, error: "لا يمكن تخفيض دورك الخاص" };
+  const target = await db.profile.findUnique({ where: { id: profileId }, select: { id: true } });
+  if (!target) return { ok: false, error: "not_found" };
+  await db.profile.update({ where: { id: profileId }, data: { role } });
+  revalidatePath("/admin/users");
   return { ok: true };
 }

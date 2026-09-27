@@ -57,7 +57,7 @@ const pgCode = (e) => e?.meta?.code ?? e?.code;
 
 async function main() {
   /* 1 — tables */
-  const expectedTables = ["Profile", "Series", "Chapter", "ChapterPage", "ReadingProgress", "AnalyticsEvent", "EditorialCollection"];
+  const expectedTables = ["Profile", "Series", "Chapter", "ChapterPage", "ReadingProgress", "AnalyticsEvent", "EditorialCollection", "LibraryItem", "Comment", "CommentReport", "Rating"];
   const tables = await prisma.$queryRawUnsafe(`select table_name from information_schema.tables where table_schema='public' and table_type='BASE TABLE'`);
   const tableNames = tables.map((t) => t.table_name).sort();
   check(`tables present (${expectedTables.length})`, expectedTables.every((t) => tableNames.includes(t)), `found: ${tableNames.join(", ")}`);
@@ -65,11 +65,13 @@ async function main() {
   /* 2 — native enums + labels */
   const expectedEnums = {
     user_role: ["reader", "editor", "admin"],
-    series_format: ["manga", "webtoon"],
+    series_format: ["manga", "webtoon", "novel"],
     series_status: ["ongoing", "completed", "hiatus"],
     chapter_workflow: ["draft", "review", "published"],
     reading_direction: ["rtl", "ltr"],
     analytics_event_type: ["read_start", "read_page", "read_complete", "login", "publish"],
+    library_shelf: ["reading", "plan", "finished"],
+    comment_status: ["visible", "flagged", "hidden"],
   };
   const enums = await prisma.$queryRawUnsafe(`
     select t.typname, array_agg(e.enumlabel order by e.enumsortorder) as labels
@@ -86,12 +88,14 @@ async function main() {
   const cols = await prisma.$queryRawUnsafe(`
     select table_name, column_name, udt_name, is_nullable, column_default
     from information_schema.columns
-    where table_schema='public' and table_name in ('Profile','Series','Chapter','AnalyticsEvent','ReadingProgress')
+    where table_schema='public' and table_name in ('Profile','Series','Chapter','AnalyticsEvent','ReadingProgress','LibraryItem','Comment')
     and (
       (table_name='Profile' and column_name='role')
       or (table_name='Series' and column_name in ('format','status','slug'))
-      or (table_name='Chapter' and column_name='workflow')
+      or (table_name='Chapter' and column_name in ('workflow','novelBody'))
       or (table_name='AnalyticsEvent' and column_name='type')
+      or (table_name='LibraryItem' and column_name='shelf')
+      or (table_name='Comment' and column_name='status')
       or (table_name='Series' and column_name='createdAt')
       or (table_name='ReadingProgress' and column_name='updatedAt')
     )`);
@@ -101,10 +105,13 @@ async function main() {
   check("Series.status → series_status enum", col("Series", "status")?.udt_name === "series_status");
   check("Chapter.workflow → chapter_workflow enum", col("Chapter", "workflow")?.udt_name === "chapter_workflow");
   check("AnalyticsEvent.type → analytics_event_type enum", col("AnalyticsEvent", "type")?.udt_name === "analytics_event_type");
+  check("Chapter.novelBody → nullable text (novel prose)", cols.some((x) => x.table_name === "Chapter" && x.column_name === "novelBody" && x.is_nullable === "YES" && x.udt_name === "text"));
+  check("LibraryItem.shelf → library_shelf enum", col("LibraryItem", "shelf")?.udt_name === "library_shelf");
+  check("Comment.status → comment_status enum", col("Comment", "status")?.udt_name === "comment_status");
   check("Series.createdAt has CURRENT_TIMESTAMP default", String(col("Series", "createdAt")?.column_default ?? "").includes("CURRENT_TIMESTAMP"));
 
   /* 4 — unique indexes */
-  const expectedUniques = ["Profile_email_key", "Series_slug_key", "Chapter_seriesId_number_key", "ChapterPage_chapterId_pageIndex_key", "ReadingProgress_profileId_chapterId_key", "EditorialCollection_slug_key"];
+  const expectedUniques = ["Profile_email_key", "Series_slug_key", "Chapter_seriesId_number_key", "ChapterPage_chapterId_pageIndex_key", "ReadingProgress_profileId_chapterId_key", "EditorialCollection_slug_key", "LibraryItem_profileId_seriesId_key", "CommentReport_commentId_profileId_key", "Rating_profileId_seriesId_key"];
   const idx = await prisma.$queryRawUnsafe(`
     select indexname from pg_indexes
     where schemaname='public' and indexdef like 'CREATE UNIQUE INDEX%'`);
@@ -124,6 +131,15 @@ async function main() {
     ReadingProgress_chapterId_fkey: ["c", "c"],
     AnalyticsEvent_profileId_fkey: ["n", "c"],
     AnalyticsEvent_seriesId_fkey: ["n", "c"],
+    LibraryItem_profileId_fkey: ["c", "c"],
+    LibraryItem_seriesId_fkey: ["c", "c"],
+    Comment_profileId_fkey: ["c", "c"],
+    Comment_seriesId_fkey: ["c", "c"],
+    Comment_chapterId_fkey: ["c", "c"],
+    CommentReport_commentId_fkey: ["c", "c"],
+    CommentReport_profileId_fkey: ["c", "c"],
+    Rating_profileId_fkey: ["c", "c"],
+    Rating_seriesId_fkey: ["c", "c"],
   };
   for (const [name, [del, upd]] of Object.entries(expectedFks)) {
     const f = fkMap[name];
@@ -139,13 +155,14 @@ async function main() {
   await clean();
   try {
     // 6a — enum enforcement: invalid format value must be rejected
+    // ('novel' became VALID in Release B — probe uses a permanently-invalid value)
     try {
       await prisma.$executeRawUnsafe(
-        `insert into "Series" (id, slug, "titleAr", "synopsisAr", format, author, "coverPath", "updatedAt") values ('${pid}s1', 'zz-constraint-probe', 't', 's', 'novel', 'a', '/x.webp', CURRENT_TIMESTAMP)`
+        `insert into "Series" (id, slug, "titleAr", "synopsisAr", format, author, "coverPath", "updatedAt") values ('${pid}s1', 'zz-constraint-probe', 't', 's', 'audiobook', 'a', '/x.webp', CURRENT_TIMESTAMP)`
       );
-      check("enum rejects invalid value 'novel' for series_format", false, "insert unexpectedly succeeded");
+      check("enum rejects invalid value 'audiobook' for series_format", false, "insert unexpectedly succeeded");
     } catch (e) {
-      check("enum rejects invalid value 'novel' for series_format", pgCode(e) === "22P02", `pg code=${pgCode(e) ?? "?"}`);
+      check("enum rejects invalid value 'audiobook' for series_format", pgCode(e) === "22P02", `pg code=${pgCode(e) ?? "?"}`);
     }
 
     // 6b — valid insert + createdAt default

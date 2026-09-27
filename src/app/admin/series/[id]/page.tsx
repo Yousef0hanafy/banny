@@ -134,7 +134,7 @@ export default async function AdminSeriesDetailPage({
               titleOriginal: s.titleOriginal ?? "",
               slug: s.slug,
               synopsisAr: s.synopsisAr,
-              format: s.format as "manga" | "webtoon",
+              format: s.format as Format,
               status: s.status as SeriesStatus,
               author: s.author,
               translator: s.translator ?? "",

@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { AlertTriangle, ArrowUpLeft, BookOpen, CheckCircle2, FileEdit, LibraryBig, ListOrdered, Eye, Users } from "lucide-react";
-import { getAdminOverview } from "@/lib/queries";
+import { getAdminOverview, getDashboardActivity, getCommunityCounts } from "@/lib/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ActivityChart } from "@/components/admin/activity-chart";
 import { WORKFLOW_LABELS, type Workflow } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ export default async function AdminDashboard({
   const sp = await searchParams;
   const denied = sp.denied === "1";
   const o = await getAdminOverview();
+  const [chart, community] = await Promise.all([getDashboardActivity(14), getCommunityCounts()]);
 
   const cards = [
     { label: "الأعمال", value: o.seriesCount, icon: LibraryBig, href: "/admin/series" },
@@ -78,6 +80,41 @@ export default async function AdminDashboard({
       </section>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        {/* Activity chart (Release B) */}
+        <Card className="border-border/60 bg-card lg:col-span-2">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">نشاط آخر ١٤ يومًا</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ActivityChart data={chart} />
+          </CardContent>
+        </Card>
+
+        {/* Community pulse (Release B) */}
+        <Card className="border-border/60 bg-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">نبض المجتمع</CardTitle>
+          </CardHeader>
+          <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-xl border border-border/40 bg-secondary/40 p-3">
+              <p className="text-xl font-bold tabular-nums">{community.comments}</p>
+              <p className="text-[11px] text-muted-foreground">تعليق ظاهر</p>
+            </div>
+            <div className="rounded-xl border border-border/40 bg-secondary/40 p-3">
+              <p className="text-xl font-bold tabular-nums">{community.ratings}</p>
+              <p className="text-[11px] text-muted-foreground">تقييم</p>
+            </div>
+            <div className="rounded-xl border border-border/40 bg-secondary/40 p-3">
+              <p className="text-xl font-bold tabular-nums">{community.libraryItems}</p>
+              <p className="text-[11px] text-muted-foreground">عنصر بمكتبات القراء</p>
+            </div>
+            <div className="rounded-xl border border-border/40 bg-secondary/40 p-3">
+              <p className="text-xl font-bold tabular-nums">{community.avgRating.toFixed(1)}</p>
+              <p className="text-[11px] text-muted-foreground">متوسط التقييم العام</p>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Recent activity */}
         <Card className="border-border/60 bg-card">
           <CardHeader className="pb-2">

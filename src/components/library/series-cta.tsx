@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useSession } from "next-auth/react";
-import { BookOpen, Lock, Play, Plus } from "lucide-react";
+import { BookOpen, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { readLocal } from "@/lib/progress-local";
+import type { Format } from "@/lib/constants";
 
 type ChapterLite = { number: number; isPremiumDemo: boolean };
 
@@ -15,12 +16,14 @@ export function SeriesCTA({
   serverProgress,
   chapters,
   titleAr,
+  children,
 }: {
   slug: string;
-  format: "manga" | "webtoon";
+  format: Format;
   serverProgress: { chapterNumber: number; pageIndex: number; percent: number } | null;
   chapters: ChapterLite[];
   titleAr: string;
+  children?: React.ReactNode;
 }) {
   const { status } = useSession();
   const target = useMemo(() => {
@@ -54,17 +57,7 @@ export function SeriesCTA({
         </Link>
       </Button>
 
-      <Button
-        size="lg"
-        variant="outline"
-        disabled
-        className="gap-2 border-border text-muted-foreground"
-        title="ميزة المكتبة الشخصية قادمة في الإصدار التجريبي القادم"
-      >
-        <Plus className="size-4" aria-hidden />
-        أضف إلى مكتبتي
-        <span className="rounded-md bg-gold/15 px-1.5 py-0.5 text-[10px] text-gold">قريبًا</span>
-      </Button>
+      {children}
 
       {status === "unauthenticated" && (
         <p className="w-full text-xs text-muted-foreground">
@@ -76,7 +69,6 @@ export function SeriesCTA({
         </p>
       )}
       <span className="sr-only">{titleAr}</span>
-      <span className="hidden" aria-hidden><Lock /></span>
     </div>
   );
 }

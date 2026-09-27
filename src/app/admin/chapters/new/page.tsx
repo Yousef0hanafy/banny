@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChapterForm } from "@/components/admin/admin-client";
+import type { Format } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default async function NewChapterPage({
   const options = seriesList.map((s) => ({
     id: s.id,
     titleAr: s.titleAr,
-    format: s.format as "manga" | "webtoon",
+    format: s.format as Format,
   }));
   // preselect via ?series=
   if (preferred) options.sort((a, b) => (a.id === preferred ? -1 : b.id === preferred ? 1 : 0));

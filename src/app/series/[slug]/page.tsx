@@ -6,13 +6,20 @@ import { BookOpen, CheckCircle2, CircleDashed, Lock, Star, UserRound, Languages,
 import { SiteHeader, SiteFooter, BottomNav } from "@/components/library/chrome";
 import { Rail, SeriesCardItem, SeriesMetaBadges } from "@/components/library/series-card";
 import { SeriesCTA } from "@/components/library/series-cta";
+import { LibraryButton } from "@/components/library/library-button";
+import { RatingWidget } from "@/components/community/rating-widget";
+import { CommentsSection } from "@/components/community/comments-section";
+import { CalendarClock } from "lucide-react";
 import {
   currentProfileOrNull,
   getProgressMap,
   getRelatedSeries,
   getSeriesBySlug,
+  getVisibleComments,
+  getUserRating,
   parseJsonArray,
 } from "@/lib/queries";
+import type { Format } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +58,19 @@ export default async function SeriesDetailPage({
   const related = await getRelatedSeries(s.id, parseJsonArray(s.genresJson));
   const genres = parseJsonArray(s.genresJson);
   const tags = parseJsonArray(s.tagsJson);
+
+  const [comments, userRating, shelfRow] = await Promise.all([
+    getVisibleComments(s.id, null),
+    getUserRating(profile?.id ?? null, s.id),
+    profile
+      ? import("@/lib/db").then(({ db }) =>
+          db.libraryItem.findUnique({
+            where: { profileId_seriesId: { profileId: profile.id, seriesId: s.id } },
+            select: { shelf: true },
+          })
+        )
+      : Promise.resolve(null),
+  ]);
 
   // server-side progress for the signed-in reader (most recent chapter with progress)
   let serverProgress: { chapterNumber: number; pageIndex: number; percent: number } | null = null;
@@ -107,7 +127,7 @@ export default async function SeriesDetailPage({
                   </p>
                 )}
                 <div className="mt-3 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                  <SeriesMetaBadges format={s.format as "manga" | "webtoon"} status={s.status as "ongoing"} />
+                  <SeriesMetaBadges format={s.format as Format} status={s.status as "ongoing"} />
                   <span className="flex items-center gap-1 rounded-md border border-gold/30 bg-gold/10 px-2 py-0.5 text-xs font-semibold text-gold">
                     <Star className="size-3.5 fill-gold" aria-hidden />
                     {s.ratingAvg.toFixed(1)}
@@ -140,14 +160,16 @@ export default async function SeriesDetailPage({
                   </div>
                 </dl>
 
-                <div className="mt-5 flex justify-center sm:justify-start">
+                <div className="mt-5 flex flex-wrap justify-center gap-2.5 sm:justify-start">
                   <SeriesCTA
                     slug={s.slug}
-                    format={s.format as "manga" | "webtoon"}
+                    format={s.format as Format}
                     serverProgress={serverProgress}
-                    chapters={published.map((c) => ({ number: c.number, isPremiumDemo: c.isPremiumDemo }))}
+                    chapters={s.publishedChapters.map((c) => ({ number: c.number, isPremiumDemo: c.isPremiumDemo }))}
                     titleAr={s.titleAr}
-                  />
+                  >
+                    <LibraryButton slug={s.slug} initialShelf={(shelfRow?.shelf as "reading" | "plan" | "finished") ?? null} />
+                  </SeriesCTA>
                 </div>
               </div>
             </div>
@@ -192,7 +214,9 @@ export default async function SeriesDetailPage({
                           )}
                         </span>
                         <span className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                          {c.pageCount} {s.format === "manga" ? "صفحة" : "لوحة"}
+                          {s.format === "novel"
+                            ? `${c.novelWords} كلمة تقريبًا`
+                            : `${c.pageCount} ${s.format === "manga" ? "صفحة" : "لوحة"}`}
                           {c.publishedAt && <span>· {timeAgoAr(c.publishedAt)}</span>}
                           {read && <span className="text-success">· تمت القراءة</span>}
                           {prog && <span className="text-primary">· قارأتم {Math.round(progressMap.get(c.id)?.percent ?? 0)}٪</span>}
@@ -231,6 +255,33 @@ export default async function SeriesDetailPage({
                   لا فصول منشورة بعد — العمل قيد التحضير.
                 </p>
               )}
+
+              {/* Scheduled chapters (Release B scheduler, FD-5) */}
+              {s.scheduledChapters.length > 0 && (
+                <section aria-label="فصول مجدولة" className="mt-5">
+                  <h3 className="mb-2.5 flex items-center gap-1.5 text-sm font-bold text-muted-foreground">
+                    <CalendarClock className="size-4" aria-hidden />
+                    فصول مجدولة
+                  </h3>
+                  <ol className="divide-y divide-border/60 overflow-hidden rounded-2xl border border-dashed border-border/60 bg-card/50">
+                    {s.scheduledChapters.map((c) => (
+                      <li key={c.id} className="flex items-center gap-3 px-4 py-3.5 opacity-80" aria-label="ينشر قريبًا">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-gold/40 bg-gold/10 text-sm font-bold text-gold" aria-hidden>
+                          <Lock className="size-4" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium text-foreground/80">
+                            الفصل {c.number}: {c.titleAr}
+                          </span>
+                          <span className="text-[11px] text-gold">
+                            ينشر {c.scheduledFor ? new Date(c.scheduledFor).toLocaleDateString("ar-EG", { day: "numeric", month: "long" }) : "قريبًا"}
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              )}
             </section>
 
             {/* Side info */}
@@ -263,7 +314,21 @@ export default async function SeriesDetailPage({
               <p className="text-sm text-muted-foreground">لا أعمال مشابهة بعد.</p>
             )}
           </Rail>
-          <div className="pb-10" />
+
+          {/* Community (Release B): rating + series-level comments */}
+          <div className="mt-8 grid gap-6 pb-10 lg:grid-cols-[280px_1fr]">
+            <RatingWidget
+              slug={s.slug}
+              ratingAvg={s.ratingAvg}
+              ratingCount={s.ratingCount}
+              userValue={userRating?.value ?? null}
+            />
+            <CommentsSection
+              seriesSlug={s.slug}
+              seriesTitle={s.titleAr}
+              comments={comments}
+            />
+          </div>
         </div>
       </main>
       <SiteFooter />

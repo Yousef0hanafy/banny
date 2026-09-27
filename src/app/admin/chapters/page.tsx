@@ -116,6 +116,7 @@ export default async function AdminChaptersPage({
                       titleAr: c.titleAr,
                       workflow: c.workflow as Workflow,
                       isPremiumDemo: c.isPremiumDemo,
+                      scheduledFor: c.scheduledFor ? c.scheduledFor.toISOString() : null,
                     }}
                   />
                 </td>

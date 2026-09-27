@@ -13,5 +13,6 @@ Blocking items for the next step, each with a recommendation so approval can be 
 | **FD-7** | Demo account credential strategy | (a) one shared admin + one shared reader, credentials in README; (b) per-reviewer accounts | **(a)** — prototype-grade, documented, revocable |
 | **FD-8** | Locked/premium demo chapter visual in Release A | (a) keep on one webtoon series (visual only, no purchase); (b) defer to B | **(a)** — it's central to the premium narrative and costs almost nothing |
 | **FD-9** | Approval to begin **Release A** build | (a) approve now; (b) hold until FD-1 reconciliation completes | **(a)** — Release A has no dependency on the missing docs; reconciliation gates B, not A |
+| **FD-10** | Release B start without source docs (docs never delivered after repeated asks) | (a) proceed now, reconciliation becomes post-hoc when/if docs arrive; (b) keep B blocked indefinitely | **(a)** — founder directed "ok continue" (2026-09-28) after being informed B's only remaining gate was the docs; all B content remains 100% original fictional, so legal exposure is unchanged. Reconciliation runs post-hoc (CONTRADICTION_REPORT §2 checklist ready) |
 
 **Standing legal guardrails (no approval expected, restated):** no real/licensed content, no payments, no downloads, no "licensed/official" claims — lawyer review required before any of these ever changes.

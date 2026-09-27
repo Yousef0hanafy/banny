@@ -9,11 +9,12 @@
 export const ROLES = ["reader", "editor", "admin"] as const;
 export type Role = (typeof ROLES)[number];
 
-export const FORMATS = ["manga", "webtoon"] as const; // novel lands in Release B
+export const FORMATS = ["manga", "webtoon", "novel"] as const;
 export type Format = (typeof FORMATS)[number];
 export const FORMAT_LABELS: Record<Format, string> = {
   manga: "مانجا",
   webtoon: "ويبتون",
+  novel: "رواية",
 };
 
 export const SERIES_STATUSES = ["ongoing", "completed", "hiatus"] as const;
@@ -57,6 +58,23 @@ export const EVENT_TYPES = [
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
+/* Release B — library shelves, community vocabularies */
+export const SHELVES = ["reading", "plan", "finished"] as const;
+export type Shelf = (typeof SHELVES)[number];
+export const SHELF_LABELS: Record<Shelf, string> = {
+  reading: "أقرؤها حاليًا",
+  plan: "أرغب بقراءتها",
+  finished: "أنهيتها",
+};
+
+export const COMMENT_STATUSES = ["visible", "flagged", "hidden"] as const;
+export type CommentStatus = (typeof COMMENT_STATUSES)[number];
+export const COMMENT_STATUS_LABELS: Record<CommentStatus, string> = {
+  visible: "ظاهر",
+  flagged: "مُبلّغ عنه",
+  hidden: "مخفي",
+};
+
 export function isRole(v: unknown): v is Role {
   return typeof v === "string" && (ROLES as readonly string[]).includes(v);
 }
@@ -71,4 +89,10 @@ export function isWorkflow(v: unknown): v is Workflow {
 }
 export function isReadingDirection(v: unknown): v is ReadingDirection {
   return typeof v === "string" && (READING_DIRECTIONS as readonly string[]).includes(v);
+}
+export function isShelf(v: unknown): v is Shelf {
+  return typeof v === "string" && (SHELVES as readonly string[]).includes(v);
+}
+export function isCommentStatus(v: unknown): v is CommentStatus {
+  return typeof v === "string" && (COMMENT_STATUSES as readonly string[]).includes(v);
 }

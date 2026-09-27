@@ -5,9 +5,12 @@
  * Analytics events are seeded only into an empty table (guarded below), so running
  * the seed twice produces identical row counts.
  */
-import { PrismaClient, Prisma, UserRole, SeriesFormat, SeriesStatus, ChapterWorkflow, ReadingDirection } from "@prisma/client";
+import { PrismaClient, Prisma, UserRole, SeriesFormat, SeriesStatus, ChapterWorkflow, ReadingDirection, LibraryShelf, CommentStatus } from "@prisma/client";
 import { scryptSync, randomBytes, timingSafeEqual } from "crypto";
 import { SERIES, COLLECTIONS, DEMO_ACCOUNTS, DEMO_PROGRESS, hashSeed, mulberry32 } from "../scripts/release-a-data.mjs";
+import { SERIES_B, COMMENTS, RATINGS, REPORTS, LIBRARY_SEED } from "../scripts/release-b-data.mjs";
+
+const ALL_SERIES = [...SERIES, ...SERIES_B];
 
 const db = new PrismaClient();
 
@@ -42,7 +45,7 @@ async function seedProfiles() {
 }
 
 async function seedSeries() {
-  for (const [i, s] of SERIES.entries()) {
+  for (const [i, s] of ALL_SERIES.entries()) {
     const data = {
       slug: s.slug,
       titleAr: s.titleAr,
@@ -75,6 +78,11 @@ async function seedSeries() {
         publishedAt: isPublished ? daysAgo(Math.max(publishedAt, 1)) : null,
         isPremiumDemo: Boolean(ch.isPremiumDemo),
         readingDirection: (s.format === "manga" ? "rtl" : "rtl") as ReadingDirection,
+        novelBody: s.format === "novel" ? (ch.novelBody ?? null) : null,
+        scheduledFor:
+          ch.scheduledFor && isPublished
+            ? (() => { const d = new Date(); d.setDate(d.getDate() + 7); d.setHours(18, 30, 0, 0); return d; })()
+            : null,
       };
       const chapter = await db.chapter.upsert({
         where: { seriesId_number: { seriesId: series.id, number: ch.number } },
@@ -182,11 +190,127 @@ async function seedAnalytics() {
   await db.analyticsEvent.createMany({ data: events });
 }
 
+async function seedCommunity() {
+  const profiles = await db.profile.findMany({ select: { id: true, email: true } });
+  const byEmail = new Map(profiles.map((p) => [p.email, p.id]));
+  const seriesRows = await db.series.findMany({ select: { id: true, slug: true } });
+  const seriesBySlug = new Map(seriesRows.map((s) => [s.slug, s.id]));
+
+  /* Ratings — idempotent via (profileId, seriesId) unique */
+  for (const r of RATINGS) {
+    const seriesId = seriesBySlug.get(r.seriesSlug);
+    if (!seriesId) continue;
+    for (const [email, value] of Object.entries(r.ratings)) {
+      const profileId = byEmail.get(email);
+      if (!profileId) continue;
+      await db.rating.upsert({
+        where: { profileId_seriesId: { profileId, seriesId } },
+        update: { value },
+        create: { profileId, seriesId, value },
+      });
+    }
+    const agg = await db.rating.aggregate({ where: { seriesId }, _avg: { value: true }, _count: { _all: true } });
+    if ((agg._count._all ?? 0) > 0 && (agg._avg.value ?? 0) > 0) {
+      await db.series.update({
+        where: { id: seriesId },
+        data: {
+          ratingAvg: Math.round((agg._avg.value ?? 0) * 10) / 10,
+          ratingCount: agg._count._all,
+        },
+      });
+    }
+  }
+
+  /* Library shelves — idempotent via (profileId, seriesId) unique */
+  const readerId = byEmail.get("reader@bunny.demo");
+  for (const item of LIBRARY_SEED) {
+    if (!readerId) break;
+    const seriesId = seriesBySlug.get(item.seriesSlug);
+    if (!seriesId) continue;
+    await db.libraryItem.upsert({
+      where: { profileId_seriesId: { profileId: readerId, seriesId } },
+      update: { shelf: item.shelf as LibraryShelf },
+      create: { profileId: readerId, seriesId, shelf: item.shelf as LibraryShelf },
+    });
+  }
+
+  /* Comments — guarded: only into an empty table (no natural key) */
+  if ((await db.comment.count()) === 0) {
+    const createdIds: { id: string; body: string; seriesSlug: string }[] = [];
+    for (const c of COMMENTS) {
+      const profileId = byEmail.get(c.authorEmail);
+      const seriesId = seriesBySlug.get(c.seriesSlug);
+      if (!profileId || !seriesId) continue;
+      let chapterId: string | null = null;
+      if (c.chapterNumber) {
+        const ch = await db.chapter.findFirst({ where: { seriesId, number: c.chapterNumber }, select: { id: true } });
+        chapterId = ch?.id ?? null;
+      }
+      const created = await db.comment.create({
+        data: {
+          profileId,
+          seriesId,
+          chapterId,
+          body: c.body,
+          status: c.status as CommentStatus,
+        },
+      });
+      createdIds.push({ id: created.id, body: c.body, seriesSlug: c.seriesSlug });
+    }
+
+    /* Reports — link to matching comments (unique per commenter+comment) */
+    for (const rp of REPORTS) {
+      const reporterId = byEmail.get(rp.reporterEmail);
+      if (!reporterId) continue;
+      const target = createdIds.find((c) => c.seriesSlug === rp.seriesSlug && rp.match(c.body));
+      if (!target) continue;
+      await db.commentReport.upsert({
+        where: { commentId_profileId: { commentId: target.id, profileId: reporterId } },
+        update: { reasonAr: rp.reasonAr },
+        create: { commentId: target.id, profileId: reporterId, reasonAr: rp.reasonAr },
+      });
+    }
+  }
+
+  /* Novels collection — upsert by slug */
+  await db.editorialCollection.upsert({
+    where: { slug: "voices-in-ink" },
+    update: {
+      titleAr: "أصوات مُحبَّرة",
+      descriptionAr: "روايات أصلية تُقرأ على مهل — من الرسائل التي تصل متأخرة إلى الرمل الذي يحفظ الأسماء.",
+      theme: "gold",
+      displayOrder: 3,
+      isFeatured: true,
+      seriesSlugsJson: JSON.stringify([
+        "letters-from-the-seventh-floor",
+        "sand-that-remembers-names",
+        "the-six-thirty-train",
+        "harbor-of-old-stars",
+      ]),
+    },
+    create: {
+      slug: "voices-in-ink",
+      titleAr: "أصوات مُحبَّرة",
+      descriptionAr: "روايات أصلية تُقرأ على مهل — من الرسائل التي تصل متأخرة إلى الرمل الذي يحفظ الأسماء.",
+      theme: "gold",
+      displayOrder: 3,
+      isFeatured: true,
+      seriesSlugsJson: JSON.stringify([
+        "letters-from-the-seventh-floor",
+        "sand-that-remembers-names",
+        "the-six-thirty-train",
+        "harbor-of-old-stars",
+      ]),
+    },
+  });
+}
+
 async function main() {
   await seedProfiles();
   await seedSeries();
   await seedCollections();
   await seedProgress();
+  await seedCommunity();
   await seedAnalytics();
   const counts = {
     profiles: await db.profile.count(),
@@ -196,6 +320,10 @@ async function main() {
     progress: await db.readingProgress.count(),
     events: await db.analyticsEvent.count(),
     collections: await db.editorialCollection.count(),
+    libraryItems: await db.libraryItem.count(),
+    comments: await db.comment.count(),
+    ratings: await db.rating.count(),
+    reports: await db.commentReport.count(),
   };
   console.log("Seed complete:", counts);
 }

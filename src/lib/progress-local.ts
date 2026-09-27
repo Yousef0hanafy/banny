@@ -14,7 +14,7 @@ export type LocalProgress = {
   pageIndex: number;
   percent: number;
   total: number;
-  format: "manga" | "webtoon";
+  format: "manga" | "webtoon" | "novel";
   coverPath: string;
   accent: string;
   updatedAt: number;

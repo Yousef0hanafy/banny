@@ -151,3 +151,22 @@ Stage Summary:
 - NEON MIGRATION COMPLETE AND VERIFIED END-TO-END: versioned migration applied, 27/27 constraint checks, idempotent seed ×2, production runtime QA green. Release B gate ① (migration QA) CLEARED.
 - Release B still gated by ② source-document reconciliation (FD-1) — founder has not yet delivered the four docs.
 - Open items: password rotation post-cutover (recommended), prisma.config.ts before Prisma 7, React #418 → Release C.
+
+---
+Task ID: B (Release B — Complete Demo Experience)
+Agent: Super Z (main agent, lead product engineer)
+Task: Founder directed "ok continue" after migration QA cleared gate ①; recorded as FD-10 (proceed without source docs, reconciliation post-hoc); build the full Release B scope per RELEASE_PLAN.
+
+Work Log:
+- Recorded FD-10 in docs/FOUNDER_DECISIONS.md with rationale; Release B build started.
+- B-1 SCHEMA: two versioned migrations generated offline and deployed to Neon — (1) 20260927230754_release_b_novel_library_community: series_format+='novel', enums library_shelf/comment_status, tables LibraryItem/Comment/CommentReport/Rating (composite uniques, FK CASCADE), Chapter.novelBody; (2) 20260927231129_release_b_scheduler: Chapter.scheduledFor. Constraint verifier extended for B schema: 41/41 PASS. Caught + fixed two verifier bugs during extension (table_name IN filter missing LibraryItem/Comment; probe value 'novel' became valid → switched to 'audiobook').
+- B-2..B-5 CODE: constants (+novel/shelves/comment status), queries (+liveChapterWhere() public rule = published AND not future-scheduled, applied to every public surface; library/updates/comments/ratings/profile/admin-moderation/users/collections/dashboard queries), actions (setLibraryItem, markSeriesRead, postComment, reportComment, setRating w/ aggregate recompute, updateProfile, moderateComment, deleteComment, upsertCollection, deleteCollection, setUserRole w/ self-demotion guard; chapter schemas + scheduledFor/novelBody), UI (novel reader + route, LibraryButton/LibraryCardActions/RatingWidget/CommentsSection/ProfileSettings/RoleSelect/ModerateActions/CollectionForm/ActivityChart, /library /updates /profile /admin/moderation /admin/collections /admin/users, dashboard chart+community cards, scheduler inputs in chapter forms, chrome nav 5-item with المكتبة/التحديثات, format typing widened everywhere).
+- B-6 SEED: scripts/release-b-data.mjs — 6 new series (4 novels × 3 chapters of original Arabic prose, 1 manga, 1 webtoon w/ scheduled ch4), 24 comments (1 flagged spam, 1 hidden), 21 ratings, 2 reports, 7 library items, novels collection "أصوات مُحبَّرة". generate-art.mjs: 6 new motifs, novel skip, 299 files. Seed ×2 idempotent (byte-identical counts: series 12, chapters 46, pages 287, collections 3, libraryItems 7, comments 24, ratings 21, reports 2).
+- B-7 QA: typecheck 0 errors, lint clean, production build green (new dynamic routes /library /updates /read/novel /admin/users /admin/moderation /admin/collections). Browser E2E (one-call pattern, standalone+Neon): guest home 12-series markers; novel series page word-counts; novel reader prose + sepia theme switch; scheduler badge "ينشر قريبًا" public; reader library tabs + unread badges; comment posted → Neon 24→25 → renders; rating widget state; admin moderation hide → flagged→hidden DB-verified; users roles + self-guard; collections CRUD screens; dashboard chart + community pulse. Screenshots saved.
+- INCIDENT (resolved): stale standalone server from migration QA still held port 3000 with the pre-B Prisma client → transient 500 ('novel' not found in enum). Killed stale process; fresh build verified. Documented in report.
+- Deliverables: README rewritten to Release B (feature matrix), docs/RELEASE_B_REPORT.md, screenshots research/qa-neon-b-dashboard.png.
+
+Stage Summary:
+- RELEASE B COMPLETE: novel reader + library/updates/profile + community + moderation + collections/users/dashboard + scheduler + 12-series seed, all on Neon, browser-verified end to end.
+- Live chapter rule introduced app-wide: workflow=published AND scheduledFor<=now; scheduled chapters surface publicly as "ينشر قريبًا".
+- Open: source-doc reconciliation stays post-hoc (FD-10); Release C next (RTL/responsive audit, error/empty states, monitoring placeholders, accessibility, security audit, deployment docs) + React #418 audit + prisma.config.ts + Neon password rotation recommendation.
