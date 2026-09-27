@@ -129,3 +129,25 @@ Stage Summary:
 - Readiness re-confirmed end-to-end; the single remaining blocker is DIRECT_URL (same project/role/db, hostname WITHOUT "-pooler"), copied from Neon Console → Connect → "Pooled connection" toggle OFF.
 - Plan B offered to founder: explicit reply "derive it" authorizes constructing DIRECT_URL from the verified pooled host (strip -pooler), validated by a READ-ONLY probe BEFORE any migration command, logged as a founder-approved exception to the no-derivation rule.
 - NEXT unchanged upon DIRECT_URL availability: db:status → db:migrate:deploy → verify-neon-constraints.mjs → db:seed ×2 (idempotency) → restart + runtime QA (guest browse, reader progress persistence, admin auth, publish reflected from Neon) → typecheck/lint/build → final migration report. Release B remains gated.
+
+---
+Task ID: A-NEON (Phase 4: DIRECT_URL received — migration executed and fully verified)
+Agent: Super Z (main agent, lead product engineer)
+Task: Founder delivered the direct (non-pooled) connection string; execute the full migration chain: store → migrate deploy → constraint verification → seed ×2 → production runtime QA → final report.
+
+Work Log:
+- Stored DIRECT_URL verbatim via scripts/set-env-local.mjs (stdin, never echoed; 0600 kept); verified shape by metrics only: direct (no -pooler), sslmode=require present, distinct from DATABASE_URL. GATE CLEARED.
+- db:status (baseline): 1 migration found, not applied — confirmed gate had held. db:migrate:deploy: 20260927220347_init applied successfully. db:status: "Database schema is up to date!".
+- verify-neon-constraints.mjs: first run exposed a SCRIPT bug (unquoted camelCase identifiers → PG folds titleAr→titlear, 42703; Prisma wraps raw failures as P2010 with real code in meta.code). FIXED (quoted identifiers, pgCode() helper, probes supply updatedAt — @updatedAt has no DB default). Re-run: 27/27 PASS — tables, 6 enum label sets, enum-typed columns, 6 unique indexes, 7 FK rules, createdAt default; behavioral probes: 22P02 (invalid enum), 23505 (duplicate slug), 23503 (orphan FK), cascade delete proven; probes cleaned up.
+- Seed ×2 idempotency PROOF: identical counts both runs (series 6, chapters 26, pages 220, profiles 3, collections 2, progress 3, events 318).
+- typecheck CLEAN, lint CLEAN, production build GREEN (all DB routes ƒ dynamic; only /login + /_not-found static).
+- Sandbox lesson: detached background servers are reaped between tool calls (su-session cleanup) — every QA phase ran as one self-contained call (setsid server start → agent-browser steps → DB peek).
+- Runtime QA (standalone production build reading Neon via pooled URL): guest home renders all 6 series RTL (zero errors); reader sign-in → webtoon read → progress persisted (readingProgress 3→4, events +2) via Server Action; admin 3-layer guard admits admin → dashboard live metrics (321 events); publish flow: review ch6 wedding-of-the-red-moon → published via Radix select (23→24 published), publish date stamped, publicly visible to GUESTS "today"; manga reader renders (p1/11, RTL nav). qa-neon-home.png saved.
+- NON-BLOCKING finding (honest log): one minified React #418 hydration warning during session; pages fully functional; suspected pre-existing relative-date rendering — queued to Release C polish audit.
+- Secrets discipline: no credential ever printed to chat/logs/commits/reports; .env.local 0600 + gitignored + untracked (verified post-run). Rotation recommendation recorded.
+- Wrote docs/MIGRATION_REPORT.md (outcome, two-URL table, applied schema, verification results, fixes, Neon limitations/open security decisions, secrets confirmation, rollback pointers). Committed.
+
+Stage Summary:
+- NEON MIGRATION COMPLETE AND VERIFIED END-TO-END: versioned migration applied, 27/27 constraint checks, idempotent seed ×2, production runtime QA green. Release B gate ① (migration QA) CLEARED.
+- Release B still gated by ② source-document reconciliation (FD-1) — founder has not yet delivered the four docs.
+- Open items: password rotation post-cutover (recommended), prisma.config.ts before Prisma 7, React #418 → Release C.
