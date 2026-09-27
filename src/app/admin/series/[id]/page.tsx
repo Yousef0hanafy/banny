@@ -1,0 +1,149 @@
+import Link from "next/link";
+import Image from "next/image";
+import { notFound } from "next/navigation";
+import { ArrowRight, ExternalLink, ListOrdered, Plus } from "lucide-react";
+import { getAdminSeriesById, parseJsonArray } from "@/lib/queries";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ChapterWorkflowControls, SeriesForm } from "@/components/admin/admin-client";
+import { FORMAT_LABELS, STATUS_LABELS, WORKFLOW_LABELS, type Format, type SeriesStatus, type Workflow } from "@/lib/constants";
+
+export const dynamic = "force-dynamic";
+
+export default async function AdminSeriesDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  const s = await getAdminSeriesById(id);
+  if (!s) notFound();
+  const genres = parseJsonArray(s.genresJson);
+
+  const publishedCount = s.chapters.filter((c) => c.workflow === "published").length;
+
+  return (
+    <main className="mx-auto max-w-4xl p-4 pt-6 sm:p-6">
+      <Button asChild variant="ghost" size="sm" className="mb-4 gap-1.5 text-muted-foreground">
+        <Link href="/admin/series">
+          <ArrowRight className="size-4" aria-hidden />
+          عودة إلى الأعمال
+        </Link>
+      </Button>
+
+      <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <span className="relative block size-14 shrink-0 overflow-hidden rounded-xl border border-border/60">
+            <Image src={s.coverPath || "/art/covers/warden-of-the-twilight-gate.webp"} alt="" fill sizes="56px" className="object-cover" />
+          </span>
+          <div>
+            <h1 className="text-xl font-bold text-foreground">{s.titleAr}</h1>
+            <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+              {FORMAT_LABELS[s.format as Format]} · {STATUS_LABELS[s.status as SeriesStatus]} · {publishedCount}/{s.chapters.length} فصل منشور · {s.reads.toLocaleString("ar-EG")} قراءة
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button asChild variant="outline" size="sm" className="gap-1.5 border-border">
+            <Link href={`/admin/chapters/new?series=${s.id}`}>
+              <Plus className="size-4" aria-hidden />
+              فصل جديد
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="gap-1.5 border-border">
+            <Link href={`/series/${s.slug}`} target="_blank">
+              <ExternalLink className="size-4" aria-hidden />
+              معاينة
+            </Link>
+          </Button>
+        </div>
+      </header>
+
+      {/* Chapters management */}
+      <section className="mb-8" aria-label="إدارة الفصول">
+        <h2 className="mb-3 flex items-center gap-2 text-lg font-bold">
+          <ListOrdered className="size-5 text-primary" aria-hidden />
+          الفصول
+        </h2>
+        <div className="overflow-hidden rounded-2xl border border-border/60 bg-card">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border/60 text-xs text-muted-foreground">
+                <th className="p-3 text-start font-medium">الفصل</th>
+                <th className="hidden p-3 text-start font-medium sm:table-cell">الصفحات</th>
+                <th className="hidden p-3 text-start font-medium md:table-cell">سير العمل</th>
+                <th className="p-3 text-start font-medium">التحكم</th>
+              </tr>
+            </thead>
+            <tbody>
+              {s.chapters.map((c) => (
+                <tr key={c.id} className="border-b border-border/40 last:border-0">
+                  <td className="p-3">
+                    <p className="font-medium text-foreground">الفصل {c.number}: {c.titleAr}</p>
+                    <p className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+                      {c.isPremiumDemo && (
+                        <Badge variant="secondary" className="border-gold/40 bg-gold/10 text-gold">مقفل تجريبيًا</Badge>
+                      )}
+                      {c.publishedAt ? `نُشر ${c.publishedAt.toLocaleDateString("ar-EG")}` : "غير منشور"}
+                    </p>
+                  </td>
+                  <td className="hidden p-3 tabular-nums text-muted-foreground sm:table-cell">{c._count.pages}</td>
+                  <td className="hidden p-3 md:table-cell">
+                    <Badge
+                      variant="secondary"
+                      className={
+                        c.workflow === "published"
+                          ? "border-success/40 bg-success/10 text-success"
+                          : c.workflow === "review"
+                            ? "border-gold/40 bg-gold/10 text-gold"
+                            : "border-border bg-secondary text-muted-foreground"
+                      }
+                    >
+                      {WORKFLOW_LABELS[c.workflow as Workflow]}
+                    </Badge>
+                  </td>
+                  <td className="p-3">
+                    <ChapterWorkflowControls
+                      chapter={{
+                        id: c.id,
+                        number: c.number,
+                        titleAr: c.titleAr,
+                        workflow: c.workflow as Workflow,
+                        isPremiumDemo: c.isPremiumDemo,
+                      }}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {s.chapters.length === 0 && (
+            <p className="px-4 py-10 text-center text-sm text-muted-foreground">لا فصول بعد — أنشئ أول فصل.</p>
+          )}
+        </div>
+      </section>
+
+      {/* Metadata editing */}
+      <section aria-label="تعديل بيانات العمل">
+        <h2 className="mb-3 text-lg font-bold">تعديل البيانات</h2>
+        <div className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6">
+          <SeriesForm
+            initial={{
+              id: s.id,
+              titleAr: s.titleAr,
+              titleOriginal: s.titleOriginal ?? "",
+              slug: s.slug,
+              synopsisAr: s.synopsisAr,
+              format: s.format as "manga" | "webtoon",
+              status: s.status as SeriesStatus,
+              author: s.author,
+              translator: s.translator ?? "",
+              genres,
+              isFeatured: s.isFeatured,
+            }}
+          />
+        </div>
+      </section>
+    </main>
+  );
+}

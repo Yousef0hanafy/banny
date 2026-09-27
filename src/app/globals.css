@@ -1,0 +1,177 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-arabic);
+  --color-gold: var(--gold);
+  --color-gold-foreground: var(--gold-foreground);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/*
+  Bunny Library — "midnight library" design tokens (docs/DECISIONS.md D-03)
+  Dark-mode-first: :root IS the dark theme. Single calibrated theme for Release A.
+  Palette from the approved brief: deep charcoal / warm paper text / violet accent / muted gold.
+*/
+:root {
+  --radius: 0.75rem;
+  --background: #0b0b10;
+  --foreground: #f4f0e8;
+  --card: #1b1925;
+  --card-foreground: #f4f0e8;
+  --popover: #14131c;
+  --popover-foreground: #f4f0e8;
+  --primary: #9b7bff;
+  --primary-foreground: #14131c;
+  --secondary: #232031;
+  --secondary-foreground: #f4f0e8;
+  --muted: #232031;
+  --muted-foreground: #a6a0b3;
+  --accent: #2a2537;
+  --accent-foreground: #f4f0e8;
+  --destructive: #e56b6f;
+  --border: rgba(166, 160, 179, 0.16);
+  --input: rgba(166, 160, 179, 0.22);
+  --ring: #9b7bff;
+  --gold: #ddbb77;
+  --gold-foreground: #14131c;
+  --success: #5fcb9b;
+  --danger: #e56b6f;
+  --sidebar: #14131c;
+  --sidebar-foreground: #f4f0e8;
+  --sidebar-primary: #9b7bff;
+  --sidebar-primary-foreground: #14131c;
+  --sidebar-accent: #232031;
+  --sidebar-accent-foreground: #f4f0e8;
+  --sidebar-border: rgba(166, 160, 179, 0.16);
+  --sidebar-ring: #9b7bff;
+  --chart-1: #9b7bff;
+  --chart-2: #ddbb77;
+  --chart-3: #5fcb9b;
+  --chart-4: #e56b6f;
+  --chart-5: #a6a0b3;
+}
+
+.dark {
+  --background: #0b0b10;
+  --foreground: #f4f0e8;
+  --card: #1b1925;
+  --card-foreground: #f4f0e8;
+  --popover: #14131c;
+  --popover-foreground: #f4f0e8;
+  --primary: #9b7bff;
+  --primary-foreground: #14131c;
+  --secondary: #232031;
+  --secondary-foreground: #f4f0e8;
+  --muted: #232031;
+  --muted-foreground: #a6a0b3;
+  --accent: #2a2537;
+  --accent-foreground: #f4f0e8;
+  --destructive: #e56b6f;
+  --border: rgba(166, 160, 179, 0.16);
+  --input: rgba(166, 160, 179, 0.22);
+  --ring: #9b7bff;
+  --gold: #ddbb77;
+  --gold-foreground: #14131c;
+  --success: #5fcb9b;
+  --danger: #e56b6f;
+  --sidebar: #14131c;
+  --sidebar-foreground: #f4f0e8;
+  --sidebar-primary: #9b7bff;
+  --sidebar-primary-foreground: #14131c;
+  --sidebar-accent: #232031;
+  --sidebar-accent-foreground: #f4f0e8;
+  --sidebar-border: rgba(166, 160, 179, 0.16);
+  --sidebar-ring: #9b7bff;
+  --chart-1: #9b7bff;
+  --chart-2: #ddbb77;
+  --chart-3: #5fcb9b;
+  --chart-4: #e56b6f;
+  --chart-5: #a6a0b3;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    /* Arabic typography rules (docs/DECISIONS.md D-15): letter-spacing 0, generous line-height */
+    letter-spacing: 0;
+  }
+  body {
+    @apply bg-background text-foreground;
+    line-height: 1.75;
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3, h4 {
+    line-height: 1.4;
+  }
+  ::selection {
+    background: rgba(155, 123, 255, 0.35);
+  }
+}
+
+@layer utilities {
+  /* paper-grain surface used by hero + collection cards (calm, collectible mood) */
+  .bg-library-glow {
+    background:
+      radial-gradient(60rem 30rem at 85% -10%, rgba(155, 123, 255, 0.14), transparent 60%),
+      radial-gradient(40rem 24rem at 0% 0%, rgba(221, 187, 119, 0.07), transparent 55%),
+      var(--background);
+  }
+  .text-balance-ar {
+    text-wrap: balance;
+  }
+  /* thin elegant scrollbar */
+  .scrollbar-elegant::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+  .scrollbar-elegant::-webkit-scrollbar-thumb {
+    background: rgba(166, 160, 179, 0.25);
+    border-radius: 999px;
+  }
+  .scrollbar-elegant::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  /* hide scrollbar but keep scroll (row rails) */
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+}
