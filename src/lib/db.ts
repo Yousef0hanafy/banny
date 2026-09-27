@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client"
+import { resolveDatabaseUrl } from "@/lib/db-url"
 
 /**
  * Bunny Library — runtime database client (Neon PostgreSQL).
@@ -24,34 +25,28 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-function assertRuntimeUrlConfigured(): void {
-  const url = process.env.DATABASE_URL
+function assertRuntimeUrlConfigured(): string {
+  const url = resolveDatabaseUrl()
   if (!url) {
     throw new Error(
-      "[bunny-library] DATABASE_URL is not set. Add both Neon connection strings to .env.local " +
-        "(DATABASE_URL = pooled url, DIRECT_URL = direct url). See README → Database → Local setup."
+      "[bunny-library] DATABASE_URL is missing or is not a PostgreSQL connection string. " +
+        "Add both Neon connection strings to .env.local (DATABASE_URL = pooled url, DIRECT_URL = direct url). " +
+        "SQLite is no longer a runtime option (DECISIONS.md D-28). See README → Database."
     )
   }
-  if (!/^postgres(ql)?:\/\//i.test(url)) {
-    // Intentionally does NOT echo the value: connection strings contain credentials.
-    throw new Error(
-      "[bunny-library] DATABASE_URL is not a PostgreSQL connection string. " +
-        "SQLite is no longer a runtime option (DECISIONS.md D-28). " +
-        "Set DATABASE_URL to the Neon pooled url in .env.local. See README → Database."
-    )
-  }
+  return url
 }
 
 function getClient(): PrismaClient {
   let client = globalForPrisma.prisma
   if (!client) {
-    assertRuntimeUrlConfigured()
+    const url = assertRuntimeUrlConfigured()
     // The URL is passed EXPLICITLY (datasourceUrl) from the value validated
     // above, so the engine uses exactly this url and never re-reads ambient
     // env files (Prisma's own .env auto-loading cannot override it).
     client = new PrismaClient({
       log: ["error"],
-      datasourceUrl: process.env.DATABASE_URL,
+      datasourceUrl: url,
       // Standard PrismaClient against the Neon POOLED endpoint is the
       // serverless-safe configuration for the Node.js/Next.js runtime.
       // (Driver adapters are only needed for Edge runtimes — not used here.)

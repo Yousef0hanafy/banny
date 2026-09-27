@@ -12,10 +12,12 @@ import { spawnSync } from "node:child_process";
 const BASE_ENV = { PATH: process.env.PATH ?? "/usr/local/bin:/usr/bin:/bin", HOME: process.env.HOME ?? "/home/z" };
 
 function runCase(mode, label, expect) {
-  const r = spawnSync("bun", ["scripts/failsafe-probe.ts", mode], {
+  const r = spawnSync("bun", ["/home/z/my-project/scripts/failsafe-probe.ts", mode], {
     env: BASE_ENV,
     encoding: "utf8",
-    cwd: process.cwd(),
+    // cwd=/tmp → the db-url resolver cannot find a project .env.local, so each
+    // case tests EXACTLY the env the probe sets (true-absence semantics).
+    cwd: "/tmp",
     timeout: 120_000,
   });
   const out = (r.stdout ?? "") + (r.stderr ?? "");
@@ -33,13 +35,13 @@ function runCase(mode, label, expect) {
 }
 
 const results = [
-  runCase("missing", "A — DATABASE_URL missing → loud sentinel error", {
+  runCase("missing", "A — DATABASE_URL truly absent → loud sentinel error", {
     result: "sentinel-error",
-    messageIncludes: "DATABASE_URL is not set",
+    messageIncludes: "DATABASE_URL is missing or is not a PostgreSQL connection string",
   }),
-  runCase("sqlite", "B — DATABASE_URL with sqlite file: scheme → loud sentinel error", {
+  runCase("sqlite", "B — DATABASE_URL with sqlite file: scheme → loud sentinel error (no silent fallback)", {
     result: "sentinel-error",
-    messageIncludes: "not a PostgreSQL connection string",
+    messageIncludes: "DATABASE_URL is missing or is not a PostgreSQL connection string",
   }),
   runCase("unreachable", "C — unreachable PostgreSQL url → loud failure (no silent success)", {
     result: "other-error",

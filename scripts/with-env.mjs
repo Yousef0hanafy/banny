@@ -39,8 +39,11 @@ function loadEnvFile(path, { override = false } = {}) {
   return true;
 }
 
-// .env.local first (wins); .env only fills gaps (e.g. NEXTAUTH_* on old setups).
-loadEnvFile(".env.local");
+// .env.local is the DESIGNATED source of truth for local secrets — its keys
+// OVERRIDE ambient process env (this sandbox exports a stale scaffold
+// DATABASE_URL globally; the founder-approved Neon urls must win).
+// .env then fills remaining gaps only (e.g. NEXTAUTH_* on old setups).
+loadEnvFile(".env.local", { override: true });
 loadEnvFile(".env");
 
 const requiredForMigrate = ["DATABASE_URL", "DIRECT_URL"];
