@@ -52,6 +52,8 @@ function check(label, ok, detail = "") {
 function firstLine(e) {
   return String(e?.message ?? e).split("\n")[0].slice(0, 160);
 }
+// Prisma wraps raw-SQL failures as P2010 with the real PostgreSQL code in meta.code.
+const pgCode = (e) => e?.meta?.code ?? e?.code;
 
 async function main() {
   /* 1 — tables */
@@ -139,16 +141,16 @@ async function main() {
     // 6a — enum enforcement: invalid format value must be rejected
     try {
       await prisma.$executeRawUnsafe(
-        `insert into "Series" (id, slug, titleAr, synopsisAr, format, author, coverPath) values ('${pid}s1', 'zz-constraint-probe', 't', 's', 'novel', 'a', '/x.webp')`
+        `insert into "Series" (id, slug, "titleAr", "synopsisAr", format, author, "coverPath", "updatedAt") values ('${pid}s1', 'zz-constraint-probe', 't', 's', 'novel', 'a', '/x.webp', CURRENT_TIMESTAMP)`
       );
       check("enum rejects invalid value 'novel' for series_format", false, "insert unexpectedly succeeded");
     } catch (e) {
-      check("enum rejects invalid value 'novel' for series_format", e?.code === "22P02", `pg code=${e?.code ?? "?"}`);
+      check("enum rejects invalid value 'novel' for series_format", pgCode(e) === "22P02", `pg code=${pgCode(e) ?? "?"}`);
     }
 
     // 6b — valid insert + createdAt default
     await prisma.$executeRawUnsafe(
-      `insert into "Series" (id, slug, titleAr, synopsisAr, format, author, coverPath) values ('${pid}s1', 'zz-constraint-probe', 't', 's', 'manga', 'a', '/x.webp')`
+      `insert into "Series" (id, slug, "titleAr", "synopsisAr", format, author, "coverPath", "updatedAt") values ('${pid}s1', 'zz-constraint-probe', 't', 's', 'manga', 'a', '/x.webp', CURRENT_TIMESTAMP)`
     );
     const row = await prisma.$queryRawUnsafe(`select "createdAt" from "Series" where id='${pid}s1'`);
     check("createdAt DB default applied", row.length === 1 && row[0].createdAt instanceof Date);
@@ -156,26 +158,26 @@ async function main() {
     // 6c — unique slug enforcement
     try {
       await prisma.$executeRawUnsafe(
-        `insert into "Series" (id, slug, titleAr, synopsisAr, format, author, coverPath) values ('${pid}s2', 'zz-constraint-probe', 't', 's', 'manga', 'a', '/x.webp')`
+        `insert into "Series" (id, slug, "titleAr", "synopsisAr", format, author, "coverPath", "updatedAt") values ('${pid}s2', 'zz-constraint-probe', 't', 's', 'manga', 'a', '/x.webp', CURRENT_TIMESTAMP)`
       );
       check("unique slug enforced", false, "duplicate insert unexpectedly succeeded");
     } catch (e) {
-      check("unique slug enforced", e?.code === "23505", `pg code=${e?.code ?? "?"}`);
+      check("unique slug enforced", pgCode(e) === "23505", `pg code=${pgCode(e) ?? "?"}`);
     }
 
     // 6d — FK enforcement
     try {
       await prisma.$executeRawUnsafe(
-        `insert into "ChapterPage" (id, chapterId, pageIndex, imagePath) values ('${pid}p1', 'nonexistent-chapter', 0, '/x.webp')`
+        `insert into "ChapterPage" (id, "chapterId", "pageIndex", "imagePath") values ('${pid}p1', 'nonexistent-chapter', 0, '/x.webp')`
       );
       check("FK rejects orphan ChapterPage", false, "orphan insert unexpectedly succeeded");
     } catch (e) {
-      check("FK rejects orphan ChapterPage", e?.code === "23503", `pg code=${e?.code ?? "?"}`);
+      check("FK rejects orphan ChapterPage", pgCode(e) === "23503", `pg code=${pgCode(e) ?? "?"}`);
     }
 
     // 6e — cascade delete: Series → Chapter
     await prisma.$executeRawUnsafe(
-      `insert into "Chapter" (id, seriesId, number, titleAr) values ('${pid}c1', '${pid}s1', 999, 't')`
+      `insert into "Chapter" (id, "seriesId", number, "titleAr", "updatedAt") values ('${pid}c1', '${pid}s1', 999, 't', CURRENT_TIMESTAMP)`
     );
     await prisma.$executeRawUnsafe(`delete from "Series" where id='${pid}s1'`);
     const orphanChapters = await prisma.$queryRawUnsafe(`select id from "Chapter" where id='${pid}c1'`);
