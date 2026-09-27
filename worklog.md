@@ -111,3 +111,21 @@ Stage Summary:
 - Pooled URL stored + verified working; empty DB confirmed — safe to proceed the moment DIRECT_URL arrives.
 - BLOCKED ON: DIRECT_URL = the direct (non-pooled) string for the same project/role/db (hostname WITHOUT "-pooler"), copied from Neon dashboard "Connect" with the Pooled toggle OFF, into .env.local as DIRECT_URL=...
 - NEXT on receipt: db:status → db:migrate:deploy (20260927220347_init) → verify-neon-constraints.mjs → db:seed ×2 → runtime QA (guest/progress/admin/publish from Neon) → final report. Release B remains gated.
+
+---
+Task ID: A-NEON (Phase 3: identical pooled URL re-received — DIRECT_URL gate still held)
+Agent: Super Z (main agent, lead product engineer)
+Task: Founder pasted a connection string in chat again; determine if it is new information; re-verify staged readiness; keep the no-migration gate active.
+
+Work Log:
+- Hash-equality compare of the pasted string vs stored .env.local DATABASE_URL (values never printed): IDENTICAL — byte-for-byte the same pooled URL from Phase 2. No new information.
+- DIRECT_URL line in .env.local inspected by emptiness/shape only: EMPTY PLACEHOLDER (no value). Gate blocker unchanged.
+- Security re-check: .env.local chmod 600, matched by .gitignore (.env*), untracked; only .env.example tracked in git.
+- READ-ONLY re-probe of stored pooled URL (SELECT 1 + table count, no migration command): connectivity OK, pooled=true, sslmode+channel_binding accepted, public tables = 0 (still empty — nothing has ever been applied to Neon), PostgreSQL server_version 18.6.
+- Confirmed staged assets intact: prisma/migrations/20260927220347_init/migration.sql + migration_lock.toml; db:status / db:migrate:deploy / db:seed / verify-neon-constraints.mjs all present.
+- NOTHING migrated, seeded, or schema-touched on Neon (one-URL stop condition honored). DIRECT_URL still NOT derived (founder rule).
+
+Stage Summary:
+- Readiness re-confirmed end-to-end; the single remaining blocker is DIRECT_URL (same project/role/db, hostname WITHOUT "-pooler"), copied from Neon Console → Connect → "Pooled connection" toggle OFF.
+- Plan B offered to founder: explicit reply "derive it" authorizes constructing DIRECT_URL from the verified pooled host (strip -pooler), validated by a READ-ONLY probe BEFORE any migration command, logged as a founder-approved exception to the no-derivation rule.
+- NEXT unchanged upon DIRECT_URL availability: db:status → db:migrate:deploy → verify-neon-constraints.mjs → db:seed ×2 (idempotency) → restart + runtime QA (guest browse, reader progress persistence, admin auth, publish reflected from Neon) → typecheck/lint/build → final migration report. Release B remains gated.
