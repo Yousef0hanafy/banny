@@ -1,0 +1,47 @@
+[
+  {
+    "url": "https://nirajiitr.com",
+    "name": "Building a Dashboard UI with Tailwind CSS and Shadcn UI",
+    "snippet": "Apr 27, 2026 — Step 1: Initialize a Next.js Project · Step 2: Install and Initialize Shadcn UI · Step 3: Install Core Components · Step 4: Install Additional ... Read more",
+    "host_name": "nirajiitr.com",
+    "rank": 0,
+    "date": "Apr 27, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://dev.to",
+    "name": "A free Next.js 16 SaaS dashboard starter with shadcn/ui",
+    "snippet": "2 days ago — I just released a free SaaS dashboard starter built with Next . js 16, React 19, TypeScript, Tailwind CSS 4 and shadcn / ui . Read more",
+    "host_name": "dev.to",
+    "rank": 1,
+    "date": "Sep 25, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com",
+    "name": "Layout · shadcn-ui ui · Discussion #11952",
+    "snippet": "I recently upgraded a Next . js App Router project to Tailwind CSS v4 using the new CSS-first @import \" tailwindcss \"; configuration in globals.css. I'm using next ... Read more",
+    "host_name": "github.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://projectai.in",
+    "name": "Install and Configure ShadCN/ui Components in Next.js",
+    "snippet": "A step-by-step guide to installing and configuring ShadCN/ui components in a Next.js project, including setup of global CSS and Tailwind configuration .",
+    "host_name": "projectai.in",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://community.vercel.com",
+    "name": "Portfolio Blog Starter with shadcn-ui - Help",
+    "snippet": "Feb 19, 2025 — Have you followed the An update on Tailwind v4 - shadcn / ui guide? I was able to get it working by two changes: Add a next .config.ts file to ...",
+    "host_name": "community.vercel.com",
+    "rank": 4,
+    "date": "Feb 19, 2025",
+    "favicon": ""
+  }
+]

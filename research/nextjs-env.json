@@ -1,0 +1,56 @@
+[
+  {
+    "url": "https://www.redveil.ai",
+    "name": "Next.js Security Best Practices",
+    "snippet": "NEXT_PUBLIC_* variables are embedded in client bundles —anyone can see them All other variables are server-only and never reach the client",
+    "host_name": "www.redveil.ai",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://eastondev.com",
+    "name": "Next.js TypeScript: Strict Mode, Typed Routes, Typed Env Vars",
+    "snippet": "Jan 6, 2026 — In-depth guide on optimizing Next.js. Here's my current best practice version: Client-side env vars (must start with NEXT_PUBLIC_)",
+    "host_name": "eastondev.com",
+    "rank": 1,
+    "date": "Jan 6, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://blog.devops.dev",
+    "name": "Managing Environment Variables Across Different",
+    "snippet": "Sep 28, 2024 — Use NEXT_PUBLIC_ carefully: Only expose variables to the client that are safe for public access . Variables without this prefix are reserved for ... Read more",
+    "host_name": "blog.devops.dev",
+    "rank": 2,
+    "date": "Sep 28, 2024",
+    "favicon": ""
+  },
+  {
+    "url": "https://expeditedsecurity.com",
+    "name": "Next.js Security Checklist for Heroku",
+    "snippet": "Next.js Configuration ; // Only NEXT_PUBLIC_* variables are exposed to browser // Keep secrets without NEXT_PUBLIC_ prefix ; const apiKey = process.env.API_KEY; ...",
+    "host_name": "expeditedsecurity.com",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://tcb.cloud.tencent.com",
+    "name": "Deploying a Next.js app to Tencent Cloud CloudBase, step by step",
+    "snippet": "Step 7: environment variables ​. Next . js has two kinds of environment variables : NEXT_PUBLIC _* — injected at build time, accessible on the client ; others ...",
+    "host_name": "tcb.cloud.tencent.com",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://blog.nashtechglobal.com",
+    "name": "Security Considerations When Using Next.js",
+    "snippet": "Oct 31, 2025 — Never expose server-only environment variables to client: only use NEXT_PUBLIC_* for truly public values . Use packages like server-only to ... Read more",
+    "host_name": "blog.nashtechglobal.com",
+    "rank": 5,
+    "date": "Oct 31, 2025",
+    "favicon": ""
+  }
+]

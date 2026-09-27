@@ -1,0 +1,56 @@
+[
+  {
+    "url": "https://fonts.google.com/specimen/IBM+Plex+Sans+Arabic",
+    "name": "IBM Plex Sans Arabic",
+    "snippet": "The result is a neutral, yet friendly Grotesque style typeface that includes a Sans , has excellent legibility in print, web and mobile interfaces.",
+    "host_name": "fonts.google.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://fonts.adobe.com",
+    "name": "IBM Plex Sans Arabic",
+    "snippet": "IBM Plex Sans Arabic is available via an open source license. You're free to use it with your Adobe Fonts account just as you would any other font in the Adobe ... Read more",
+    "host_name": "fonts.adobe.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://voxire.com",
+    "name": "Arabic RTL Typography for Web Design: 2026 Guide",
+    "snippet": "Jun 1, 2026 — Use a real Arabic webfont , not the system default. Set line-height to 1.7+ for body text. Set letter-spacing to 0 on all Arabic blocks.",
+    "host_name": "voxire.com",
+    "rank": 2,
+    "date": "Jun 1, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://fontsource.org",
+    "name": "IBM Plex Sans Arabic — Font Preview & Download",
+    "snippet": "IBM Plex Sans Arabic is a sans-serif font by Mike Abbink, Preview your text, download the font, or self-host it. Size, weight, spacing, and style",
+    "host_name": "fontsource.org",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://santa-media.co",
+    "name": "12 RTL Design Rules That Lift Conversion in UAE & Saudi",
+    "snippet": "Naskh-style fonts (like Cairo , Tajawal, Almarai, and IBM Plex Arabic ) offer the best readability on screens. Avoid fonts that are too decorative for body text.",
+    "host_name": "santa-media.co",
+    "rank": 4,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com",
+    "name": "Font not working on Farsi/Arabic text · Issue #242 · IBM/plex",
+    "snippet": "Mar 26, 2019 — If you try to use Arabic characters with just IBM Plex Sans on the page , it will resort to a fallback font .",
+    "host_name": "github.com",
+    "rank": 5,
+    "date": "Mar 26, 2019",
+    "favicon": ""
+  }
+]

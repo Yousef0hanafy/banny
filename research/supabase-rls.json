@@ -1,0 +1,74 @@
+[
+  {
+    "url": "https://gartsolutions.com",
+    "name": "Supabase Best Practices: A Production Readiness Guide (2026) | Gart",
+    "snippet": "Row Level Security & Auth Best Practices · Turn on the project-level “enable RLS on new tables” setting so new tables default to locked rather than open, and ...",
+    "host_name": "gartsolutions.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.alibabacloud.com",
+    "name": "PolarDB Supabase best practices: Build a web application",
+    "snippet": "Aug 27, 2026 — RLS policy example CREATE POLICY \"Users can only see their own meetings\" ON meetings FOR SELECT USING ( auth . uid () Define RLS policies , validate ...",
+    "host_name": "www.alibabacloud.com",
+    "rank": 1,
+    "date": "Aug 27, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://checkvibe.dev",
+    "name": "Secure Your Next.js + Supabase App: Checklist",
+    "snippet": "Mar 3, 2026 — Step-by-step security checklist for Next.js apps with Supabase . Covers RLS policies , API key exposure, auth hardening, security headers, ...",
+    "host_name": "checkvibe.dev",
+    "rank": 2,
+    "date": "Mar 3, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://lobehub.com",
+    "name": "supabase-best-practices | Skills Mar",
+    "snippet": "Sep 1, 2026 — It covers Row - Level Security (RLS) policy design, secure Clerk setup and token validation, least-privilege role management, database encryption, ... Read more",
+    "host_name": "lobehub.com",
+    "rank": 3,
+    "date": "Sep 1, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://demo.gae.org",
+    "name": "Supabase Auth User Types: A Comprehensive Guide",
+    "snippet": "Dec 3, 2025 — First, you'll need to modify your users table to include a . uid () AND role = 'admin')); This policy ensures that only users with the admin role ...",
+    "host_name": "demo.gae.org",
+    "rank": 4,
+    "date": "Dec 3, 2025",
+    "favicon": ""
+  },
+  {
+    "url": "https://vibeappscanner.com",
+    "name": "What are common security mistakes in Supabase apps?",
+    "snippet": "Policies that allow more access than intended (e.g., any authenticated user). *Fix:* Use (select auth . uid ()) = user_id pattern. Test policies with different ...",
+    "host_name": "vibeappscanner.com",
+    "rank": 5,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://supabase-supabase.mintlify.app",
+    "name": "Storage Access Control - Supabase Documentation",
+    "snippet": "Supabase Storage uses PostgreSQL Row Level Security (RLS ) to control access to files. This provides fine-grained control over who can upload, download, and ... Read more",
+    "host_name": "supabase-supabase.mintlify.app",
+    "rank": 6,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://dev.to",
+    "name": "Your Supabase RLS Is Probably Wrong: A Security Guide",
+    "snippet": "Mar 29, 2026 — RLS policies typically look like: CREATE POLICY . ING ( auth . uid () = user_id); Some tables have RLS enabled but zero policies . This actually ...",
+    "host_name": "dev.to",
+    "rank": 7,
+    "date": "Mar 29, 2026",
+    "favicon": ""
+  }
+]

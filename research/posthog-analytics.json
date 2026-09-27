@@ -1,0 +1,38 @@
+[
+  {
+    "url": "https://posthog.com",
+    "name": "How to set up Next.js analytics, feature flags, and more",
+    "snippet": "Jul 15, 2025 — In this tutorial, we'll create a simple Next . js app and set up PostHog on the client and server side. We'll also capture pageviews and custom ... Read more",
+    "host_name": "posthog.com",
+    "rank": 0,
+    "date": "Jul 15, 2025",
+    "favicon": ""
+  },
+  {
+    "url": "https://vercel.com",
+    "name": "Using PostHog with the Next.js App Router and Vercel",
+    "snippet": "PostHog is an open-source, developer-friendly product analytics platform . It respects user privacy and gives you full control over your data.",
+    "host_name": "vercel.com",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.rudderstack.com",
+    "name": "Integrate your Next.js site with PostHog Analytics",
+    "snippet": "RudderStack's open source Javascript SDK allows you to integrate RudderStack with your to track event data and automatically send it to PostHog Analytics. Read more",
+    "host_name": "www.rudderstack.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://codingcapybaras.com",
+    "name": "PostHog Next.js Setup: Analytics in One Session (2026)",
+    "snippet": "Jun 5, 2026 — One SDK gets you product analytics , Analytics decisions are privacy decisions, and it's worth making them deliberately on day one rather than ...",
+    "host_name": "codingcapybaras.com",
+    "rank": 3,
+    "date": "Jun 5, 2026",
+    "favicon": ""
+  }
+]

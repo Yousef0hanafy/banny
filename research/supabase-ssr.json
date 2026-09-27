@@ -1,0 +1,20 @@
+[
+  {
+    "url": "https://github.com",
+    "name": "Next.js 13 - Magic Link Issue · supabase · Discussion #15526",
+    "snippet": "Sep 28, 2023 — I'm using Next . js 14 with the app router . This is how I am generating a magic link: const { data, error } = await supabase . auth .admin ... Read more",
+    "host_name": "github.com",
+    "rank": 0,
+    "date": "Sep 28, 2023",
+    "favicon": ""
+  },
+  {
+    "url": "https://skills.rest",
+    "name": "nextjs-supabase-auth",
+    "snippet": "Integrate Supabase Authentication with Next.js App Router middleware for protected routes. Browse installation instructions, technical dependencies, ...",
+    "host_name": "skills.rest",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  }
+]

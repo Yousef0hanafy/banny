@@ -1,0 +1,38 @@
+[
+  {
+    "url": "https://lists.apache.org",
+    "name": "[airflow] branch master updated: Get rid of requests as core",
+    "snippet": "Adds a 404 error handler to authenticate and only expose the 404 status if the security validation pass. + \"raise an error instead of silently converting ...",
+    "host_name": "lists.apache.org",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://mail-archives.apache.org",
+    "name": "Merge remote-tracking branch 'whimsy/master' into secmail",
+    "snippet": "Dec 13, 2015 — Merge remote- tracking branch. The ruby version needs be ruby 1.9.3 or higher. you may need to prefix + certain commands (like gem install ) with ...",
+    "host_name": "mail-archives.apache.org",
+    "rank": 1,
+    "date": "Dec 13, 2015",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.scribd.com",
+    "name": "Zoberetimifid | PDF | Copyright",
+    "snippet": "The document provides a detailed guide on the Swift gloves in Old School RuneScape (OSRS), including their requirements, effects, and how to obtain them. Read more",
+    "host_name": "www.scribd.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.leagology.app",
+    "name": "Changelog - Leagology",
+    "snippet": "+ Error tracking , and the box score crash it would have caught. Improved … a multi-tenant Next . js app ,",
+    "host_name": "www.leagology.app",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  }
+]

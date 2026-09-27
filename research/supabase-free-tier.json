@@ -1,0 +1,38 @@
+[
+  {
+    "url": "https://choosemystack.com",
+    "name": "Supabase for startups: the free tier, not a credit program",
+    "snippet": "The free plan caps database size, bandwidth, monthly active users and storage, and pauses projects left idle. Supabase's pricing page lists the current numbers,",
+    "host_name": "choosemystack.com",
+    "rank": 0,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.letrelay.com",
+    "name": "SaaS on Free Tiers: An Architecture That Actually Holds",
+    "snippet": "4 days ago — The limits that actually bite are daily AI quotas, a paused project . Supabase Free 500 MB database, 1 GB file storage, 50,000 monthly active ...",
+    "host_name": "www.letrelay.com",
+    "rank": 1,
+    "date": "Sep 23, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://www.answeroverflow.com",
+    "name": "Can't create a new project in supabase",
+    "snippet": "Jan 1, 2026 — The following members have reached their maximum limits for the number of active free plan projects within organizations where they are an ...",
+    "host_name": "www.answeroverflow.com",
+    "rank": 2,
+    "date": "Jan 1, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://lovable.dev",
+    "name": "Building a SaaS with Lovable, Supabase, and Stripe",
+    "snippet": "The presenter first builds an intuitive user interface with photo upload capabilities and tier -based limitations ( Free , Pro, and Pro Plus plans).",
+    "host_name": "lovable.dev",
+    "rank": 3,
+    "date": "",
+    "favicon": ""
+  }
+]

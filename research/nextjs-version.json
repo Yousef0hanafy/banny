@@ -1,0 +1,65 @@
+[
+  {
+    "url": "https://www.infoq.com",
+    "name": "Vercel's Next.js 16: Explicit Caching, Turbopack Stability,",
+    "snippet": "Dec 3, 2025 — Turbopack has reached stability and is now the default bundler for all new Next.js projects. Since its beta release, adoption has scaled ...",
+    "host_name": "www.infoq.com",
+    "rank": 0,
+    "date": "Dec 3, 2025",
+    "favicon": ""
+  },
+  {
+    "url": "https://talent500.com",
+    "name": "Next.js 16 Features and Impact",
+    "snippet": "Nov 2, 2025 — The setup includes App Router , Tailwind CSS, and ESLint by default, making new projects instantly production-ready.",
+    "host_name": "talent500.com",
+    "rank": 1,
+    "date": "Nov 2, 2025",
+    "favicon": ""
+  },
+  {
+    "url": "https://dev.to",
+    "name": "Next.js 16.2 Just Changed AI Coding Forever",
+    "snippet": "Mar 22, 2026 — Next.js 16.2 is one of those releases that quietly redraws the map: it isn't only faster—it's built so AI agents can understand, debug, and ...",
+    "host_name": "dev.to",
+    "rank": 2,
+    "date": "Mar 22, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://shubhra.dev",
+    "name": "Next.js 13 to 16: How the Framework Evolved and What Every",
+    "snippet": "Apr 16, 2026 — Next.js 16: The Performance Release Released October 21, 2025. tested, refined, and stabilized before becoming the default. The App Router is ...",
+    "host_name": "shubhra.dev",
+    "rank": 3,
+    "date": "Apr 16, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://github.com",
+    "name": "[Next 16] [DONE] Next.js 16 support · Issue #110",
+    "snippet": "Oct 15, 2025 — Important: Do not expect this package to be stable sooner than 1-2 months after Next . js 16.0.0 is officially released.",
+    "host_name": "github.com",
+    "rank": 4,
+    "date": "Oct 15, 2025",
+    "favicon": ""
+  },
+  {
+    "url": "https://global.moneyforward-dev.jp",
+    "name": "Migrating to the Next.js App Router (or",
+    "snippet": "Dec 4, 2025 — Find a candidate new feature, build it in the App Router and release it as normal. After App Router pages seemed stable , we began graduating ...",
+    "host_name": "global.moneyforward-dev.jp",
+    "rank": 5,
+    "date": "Dec 4, 2025",
+    "favicon": ""
+  },
+  {
+    "url": "https://vivekrupapara.vercel.app",
+    "name": "Mastering React 19 & Next.js 16 App Router",
+    "snippet": "Jul 10, 2026 — Learn the new features in Next . js 16 , breaking API changes, server actions, dynamic static optimization strategies, and compiling rules.",
+    "host_name": "vivekrupapara.vercel.app",
+    "rank": 6,
+    "date": "Jul 10, 2026",
+    "favicon": ""
+  }
+]

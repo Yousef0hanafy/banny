@@ -1,0 +1,38 @@
+[
+  {
+    "url": "https://www.iamraghuveer.com",
+    "name": "Next.js with a Database: Prisma, Drizzle, and the Server",
+    "snippet": "Apr 11, 2026 — Server Actions are async functions marked with 'use server' that run on the server. They are the App Router's replacement for API routes used ...",
+    "host_name": "www.iamraghuveer.com",
+    "rank": 0,
+    "date": "Apr 11, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://vercel-next-js.mintlify.app",
+    "name": "Mutating data - Next.js",
+    "snippet": "Learn how to mutate data in Next.js using Server Functions and Server Actions , handle form submissions, show pending states, and revalidate the cache.",
+    "host_name": "vercel-next-js.mintlify.app",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://nemanjamitic.com",
+    "name": "Next.js server actions with FastAPI backend and OpenAPI client",
+    "snippet": "Jan 3, 2026 — Today we will show how to implement one critical part of every full-stack app : data fetching and data mutations using Next . js and FastAPI.",
+    "host_name": "nemanjamitic.com",
+    "rank": 2,
+    "date": "Jan 3, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://pages.edgeone.ai",
+    "name": "Mastering Next.js App Router: A Complete Guide to Production",
+    "snippet": "Dec 4, 2025 — Learn how to solve Next.js App Router's biggest production challenges : state management confusion, caching issues, and Server Actions ...",
+    "host_name": "pages.edgeone.ai",
+    "rank": 3,
+    "date": "Dec 4, 2025",
+    "favicon": ""
+  }
+]

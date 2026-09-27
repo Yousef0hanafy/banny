@@ -1,0 +1,29 @@
+[
+  {
+    "url": "https://www.liberateweb.com",
+    "name": "React vs Astro vs Next.js: Which Framework for a Business",
+    "snippet": "Mar 7, 2026 — + Vercel deployment makes scaling trivial Limitations −Heavier baseline. Next.js with Supabase for the backend is our go-to stack. It's more ...",
+    "host_name": "www.liberateweb.com",
+    "rank": 0,
+    "date": "Mar 7, 2026",
+    "favicon": ""
+  },
+  {
+    "url": "https://justcopy.ai",
+    "name": "Best Vibe Coding Tools Comparison 2025: Complete Guide",
+    "snippet": "It offers the fastest deployment time (under 2 minutes), includes website cloning capabilities, built-in Supabase backend , and free Vercel hosting.",
+    "host_name": "justcopy.ai",
+    "rank": 1,
+    "date": "",
+    "favicon": ""
+  },
+  {
+    "url": "https://webdev-outline.com",
+    "name": "AWS Service Availability Updatesほか — Web Dev Digest: 2026-06-30",
+    "snippet": "Vercel が複数フレームワークを1つの Vercel Projectに同居させる Vercel Servicesを発表し、Next. ... deploy build/web で Cloudflare Pages にデプロイする手順。 ... Next . js ...",
+    "host_name": "webdev-outline.com",
+    "rank": 2,
+    "date": "",
+    "favicon": ""
+  }
+]
