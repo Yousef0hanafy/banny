@@ -80,8 +80,9 @@ Every key product/technical decision made at the discovery gate, with rationale,
 - **Decision:** Authenticated state persists to Postgres (`reading_progress`, `user_library`) via Server Actions; guest sessions keep progress in `localStorage` and offer "login to sync" prompt. Updates feed derives from `user_library` joins on `chapters.published_at`.
 - **Rationale:** Demo must survive both logged-out browsing and logged-in continuity; DB-backed pattern is the one that survives to production.
 
-### D-17 — Admin panel: separate route group with its own layout, sidebar, and 7 screens ✅ adopted
+### D-17 — Admin panel: separate route group with its own layout, sidebar, and 7 screens ✅ adopted *(release-mapped in Phase 0.1)*
 - Screens: dashboard, series list, series detail, chapters manager (workflow draft→review→published + scheduler UI), community moderation, collections, users. Admin mutations visibly affect public pages via revalidation. Rationale: brief requirement; D-12 layered protection.
+- **Phase 0.1 update:** screens are now distributed across releases per `RELEASE_PLAN.md` — **A:** secure login + series list/detail + chapters manager (publish/unpublish only); **B:** + community moderation, collections, users, dashboard analytics, scheduler UI; **C:** monitoring/accessibility hardening of admin surfaces.
 
 ### D-18 — Analytics: seeded `analytics_events` dashboard now; real PostHog deferred ✅ adopted
 - **Decision:** Admin charts render from seeded events/metrics; a `lib/analytics` stub interface exists so PostHog can drop in later. No third-party scripts in the prototype bundle.
@@ -102,8 +103,25 @@ Every key product/technical decision made at the discovery gate, with rationale,
 ### D-22 — Route map & URL grammar ✅ adopted
 - Public: `/`, `/explore`, `/series/[slug]`, `/library`, `/updates`, `/profile`, `/login`; readers: `/read/manga/[series]/[chapter]`, `/read/webtoon/[series]/[chapter]`, `/read/novel/[series]/[chapter]`; admin: `/admin`, `/admin/series`, `/admin/series/[id]`, `/admin/chapters`, `/admin/community`, `/admin/collections`, `/admin/users`. Details in `PROTOTYPE_SCOPE.md`.
 
-### D-23 — Comments & moderation model ✅ adopted
+### D-23 — Comments & moderation model ✅ adopted *(delivery moved to Release B)*
 - **Decision:** Comments attach to series and chapters; statuses `pending | approved | hidden`; reports table feeds the moderation queue; readers see approved only (RLS); authors see own regardless. 20+ realistic seeded Arabic comments across series/chapters including some `pending`/`reported` rows so the admin queue demos meaningfully.
+- **Phase 0.1 update:** schema + UI + moderation ship in **Release B**; Release A series detail/reader pages render no comments UI.
+
+### D-24 — Three-release structure ✅ adopted (founder-directed)
+- **Decision:** Scope splits into exactly **Release A** (foundation & core proof: reader-first home, webtoon + manga readers, catalog/series detail, secure admin login, series/chapter publishing workflow, schema/seed/RLS, 6 series), **Release B** (complete demo: novel reader, library/progress/updates, comments/ratings/moderation, full admin, 12 series, seeded dashboard analytics), **Release C** (polish & production-preparation: RTL/responsive audit, error/loading/empty states, monitoring placeholders, accessibility baseline, security audit, deployment docs).
+- **Rationale:** founder instruction; ruthless scope reassessment — smaller proof surface earlier, coherent demo states at each release boundary.
+- **Rejected alternative:** single-delivery build of the full scope (previous PROTOTYPE_SCOPE v0.1 framing) — defers any demo until everything is done.
+
+### D-25 — Release A continue-reading without DB-backed library ✅ adopted (pending founder confirmation FD-2)
+- **Decision:** Home hero shows continue-reading from **localStorage** (guests + any signed-in user without synced progress); seeded progress shown for the demo reader account. DB-backed library/updates arrive in B.
+- **Rationale:** proves the reader-first hero in A without pulling B's data model forward.
+
+### D-26 — Novel format deferred to Release B ✅ adopted
+- Schema migration for novel content (`novel_content` / `chapters.content_ar`), novel reader UI, and novel seed series are B items. ARCHITECTURE §3 updated accordingly.
+
+### D-27 — Conditional GO policy ✅ adopted
+- **Decision:** Release A build approval does not require the four source documents; **Release B sign-off does**. Reconciliation checklist lives in `CONTRADICTION_REPORT.md` §2; founder decisions in `FOUNDER_DECISIONS.md`.
+- **Rationale:** foundation work (stack, schema, readers, RLS, RTL) is robust to source-doc content; iteration risk is concentrated in feature scope, which lands in B.
 
 ## C. Open Questions (carried, not blocking Phase 1)
 

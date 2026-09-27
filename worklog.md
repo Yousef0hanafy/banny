@@ -23,3 +23,24 @@ Stage Summary:
 - Phase 0 COMPLETE. Recommendation: GO for prototype with 5 guardrails (no payments, no real content, no downloads, no licensed claims, no auth hardening beyond demo).
 - Top risks: (1) missing source docs, (2) unproven willingness to pay, (3) licensed incumbents shrinking differentiation window, (4) content-leakage legal risk, (5) RTL/typography quality in LTR-centric ecosystem.
 - NEXT: awaiting user approval before Phase 1 (Foundation). Re-upload of the 4 source docs requested as blocking gate for Phase 2 sign-off.
+
+---
+Task ID: 0.1
+Agent: Super Z (main agent, lead product engineer)
+Task: Phase 0.1 — Source Reconciliation Gate
+
+Work Log:
+- DELIVERY FAILURE CONFIRMED (2nd occurrence): source documents absent from /docs/source/ (directory does not exist) and /upload/ (completely empty, no hidden files); filesystem search negative. Reconciliation against the documents NOT executed and NOT fabricated, per the task's own integrity rules.
+- Executed source-independent portions of the gate:
+  - Attempted full-text verification upgrades of key claims: MANGA Plus MAX page VERIFIED full-text (Standard/Deluxe tiers); manga.com.sa VERIFIED live ("Manga Productions | Inspiring Heroes of Tomorrow"); ANN + azorafly.com remain Cloudflare-blocked (labeled).
+  - Wrote /docs/SOURCE_VERIFICATION.md — every external claim labeled (Verified-FT / Verified-SN / Inference / Unverified) with exact URL + date; 6 downgrades applied (M4 13.6% → Inference/low-confidence; C8 localization-negation → Unverified; M3 → indicative; T10 → Inference; M7 conclusion → hypothesis; C1/C4 URL-depth limitations noted).
+  - Wrote /docs/CONTRADICTION_REPORT.md — 12 internal contradictions/overreach items found & resolved (release structure, 6-vs-12 series, novel deferral, admin screen mapping, continue-reading semantics, analytics placement, comments placement, monitoring/accessibility placement, inference-labeling, scheduler deferral, conditional GO, claim confidence); source-reconciliation section marked BLOCKED with a ready per-document checklist.
+  - Wrote /docs/RELEASE_PLAN.md — founder-directed Release A/B/C with ruthless scope change log (8 items moved/cut) and per-release exit criteria.
+  - Wrote /docs/FOUNDER_DECISIONS.md — FD-1..FD-9 with recommendations (FD-1 = source-doc delivery via chat paste is the blocker).
+  - Updated all four Phase 0 docs: DISCOVERY_REPORT (conditional GO banner + M4 downgrade), DECISIONS (D-17 release-mapped; D-23 moved to B; new D-24..D-27), PROTOTYPE_SCOPE (release mapping banner + seed split A=6/B=12), ARCHITECTURE (A/B/C schema & stub phasing note).
+
+Stage Summary:
+- Phase 0.1 partially complete: everything except source-vs-discovery reconciliation (blocked on file delivery, not on effort).
+- Scope now structured as Release A (6 series, 2 readers, secure admin core) → B (complete demo, 12 series) → C (polish & production prep).
+- BLOCKED ITEM: the four source documents must be re-delivered (recommend: paste full text into chat) to run CONTRADICTION_REPORT §2; gates Release B, not Release A.
+- STOPPING as instructed — awaiting founder approval on FOUNDER_DECISIONS FD-1..FD-9 (notably FD-9: start Release A).

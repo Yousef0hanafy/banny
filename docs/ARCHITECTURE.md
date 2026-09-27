@@ -1,6 +1,8 @@
 # Bunny Library — Architecture (Phase 0 Output)
 
-Target architecture for the prototype (Phases 1–5), aligned with verified findings T1–T10 in `DISCOVERY_REPORT.md` and decisions D-10…D-23 in `DECISIONS.md`.
+> **⚠️ Phase 0.1 UPDATE:** Delivery is now split into Releases A/B/C (`RELEASE_PLAN.md`). Architectural consequences: **Release A** ships the schema subset (profiles, user_roles, series, chapters, chapter_pages, minimal analytics_events) with full RLS — `novel_content`, `user_library`/`reading_progress` DB-backing, `comments`/`comment_reports`, `reviews`, and collection tables migrate in **Release B**; monitoring placeholders (Sentry/PostHog stubs) are wired in **Release C**. Section 3 describes the end-state (post-B) model.
+
+Target architecture for the prototype, aligned with verified findings T1–T10 in `DISCOVERY_REPORT.md` and decisions D-10…D-27 in `DECISIONS.md`.
 
 ---
 

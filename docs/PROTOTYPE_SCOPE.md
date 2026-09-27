@@ -1,5 +1,7 @@
 # Bunny Library — Prototype Scope (Phase 0 Output)
 
+> **⚠️ Phase 0.1 UPDATE:** This document's single-delivery framing is **superseded by `RELEASE_PLAN.md`** (founder-directed Release A/B/C structure). The tables below remain the feature inventory, now distributed: **Release A** = P-01 (with localStorage continue-reading), P-02, P-03 (no comments UI), P-04, P-05, P-10, P-11, P-12, P-13, A-02, A-03, A-04 (publish/unpublish only), S-01 (A-tables), S-02, S-04, S-05, 6-series seed · **Release B** = P-01 (DB-backed), P-06, P-07, P-08, P-09, A-01, A-05, A-06, A-07, full S-03 (12 series), D-23 community · **Release C** = QA/audit/monitoring/accessibility/deployment per plan. Features not mapped to a release are Explicitly Deferred (§1.3).
+
 This document is the single source of truth for what gets built in Phases 1–5. It converts the full PRD vision into **Prototype Now / Production-Preparation / Explicitly Deferred** levels. If a feature is not in "Prototype Now", it does not get built in this iteration — no exceptions without a logged decision in `DECISIONS.md`.
 
 ---
@@ -41,7 +43,7 @@ This document is the single source of truth for what gets built in Phases 1–5.
 |---|---|
 | S-01 | Supabase schema: profiles, user_roles, series, chapters, chapter_pages, user_library, reading_progress, reviews, comments, comment_reports, editorial_collections, collection_series, analytics_events |
 | S-02 | RLS: public read of published content; owner-only writes for library/progress/comments; editor/admin content management; admin surface locked to admin role |
-| S-03 | Idempotent seed: 12 fictional series (4 manga / 4 webtoon / 4 novels), 3–6 chapters each for featured titles, 20+ Arabic comments/reviews, 2 collections, demo accounts (admin + editor + reader), seeded analytics |
+| S-03 | Idempotent seed: **Release A = 6 fictional series (3 manga + 3 webtoon, pending FD-3); Release B = extended to 12** (+ 4 novels), 3–6 chapters each for featured titles, 20+ Arabic comments/reviews (B), 2 collections (B admin; A renders seeded collections), demo accounts, seeded analytics (B) |
 | S-04 | Original generated cover/panel art (abstract, non-infringing) |
 | S-05 | Design system: tokens, RTL typography (IBM Plex Sans Arabic), dark-first theme, Framer Motion micro-interactions |
 
@@ -104,10 +106,9 @@ This document is the single source of truth for what gets built in Phases 1–5.
 - **Series (12):** 4 manga, 4 webtoon/manhwa, 4 novels/light-novels. Genre spread: fantasy×2, romance×2, mystery×2, historical×2, sci-fi×1, action×1, slice-of-life×1, drama×1. Statuses mixed (مستمر/مكتمل/متوقف). One series showcases a "soon/premium-locked" chapter state. Original Arabic titles + optional "original title" field, authors, translators, believable synopses (80–150 Arabic words each), tags.
 - **Chapters:** 3–6 for featured titles (≥2 featured per format), 1–3 for others; mixed workflow states (mostly published + a few draft/review + one scheduled) so admin workflow demos live.
 - **Chapter content:** manga = 8–14 abstract generated page images; webtoon = 1 vertical strip or 5–8 stacked panels; novel = 900–1,400 Arabic words of original prose per chapter (2+ full chapters for the flagship novel).
-- **Community:** 20+ Arabic comments/reviews across series & chapters with natural dialectal-but-clean tone; ≥3 pending, ≥2 reported, ≥1 hidden to exercise moderation.
-- **Collections (2):** e.g., "مغامرات ما بعد منتصف الليل" (fantasy/action) and "قلوب على ورق" (romance/slice-of-life); one featured on home.
-- **Users:** demo admin, demo editor, demo reader (credentials in README; seeded via `.env`-driven seed script, passwords hashed by Supabase auth admin API).
-- **Analytics:** ~90 days of synthetic `analytics_events` (reads by day, new readers, top series) to feed dashboard charts realistically.
+- **Demo data (B):** 20+ Arabic comments/reviews across series & chapters with natural dialectal-but-clean tone; ≥3 pending, ≥2 reported, ≥1 hidden to exercise moderation.
+- **Demo users:** demo admin, demo editor, demo reader (credentials in README; seeded via `.env`-driven seed script, passwords hashed by Supabase auth admin API).
+- **Analytics (B):** ~90 days of synthetic `analytics_events` (reads by day, new readers, top series) to feed dashboard charts realistically.
 
 ## 5. Explicit Non-Goals (restated, binding)
 No payments · no real/licensed content · no downloads · no "licensed/official" claims · no lorem ipsum (all visible text is authored Arabic) · no email verification/OTP flows · no third-party analytics scripts · no ads · no social graph · no mobile apps · no real-name user data.

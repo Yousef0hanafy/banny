@@ -1,10 +1,12 @@
 # Bunny Library — Discovery Report (Phase 0)
 
+> **⚠️ Phase 0.1 UPDATE (2026-09-28):** Source Reconciliation Gate partially executed — the four source documents were **not delivered** (evidence in `CONTRADICTION_REPORT.md`). Claim labeling & downgrades applied per `SOURCE_VERIFICATION.md`; scope re-structured into Releases A/B/C per `RELEASE_PLAN.md`. The **GO is now conditional**: Release A may start; Release B sign-off requires completed source reconciliation.
+
 | | |
 |---|---|
 | **Date** | 2026-09-28 |
 | **Phase** | 0 — Product, Market, Legal & Architecture Discovery Gate |
-| **Status** | Complete — **GO** recommended with scope guardrails |
+| **Status** | Complete — **conditional GO** (Release A only; see Phase 0.1 banner above) |
 | **Inputs** | 4 source documents referenced by the brief (PRD.md, PRODUCT_STRATEGY.md, COMPETITOR_ANALYSIS.md, MARKET_RESEARCH.md) — **NOT FOUND in `/home/z/my-project/upload/`** (directory empty). Findings below are built from independent primary web research + the task brief itself. |
 | **Method** | 32 live web searches performed on 2026-09-28 via the `web_search` API. Direct browser visit to the reference site was attempted and blocked by Cloudflare (see §2). No piracy/unofficial aggregator sites were used as sources for legal, licensing, or market claims. |
 
@@ -20,7 +22,7 @@ The Arabic comics/webtoon market has changed **materially** in the last 18 month
 
 On legality: hosting real manga/webtoon/novel content requires rights acquisition (translation, digital distribution, regional territory) per Saudi, UAE, and Egyptian copyright frameworks — all three protect translation and digital exploitation as economic rights of the author. **The prototype must and will use 100% fictional, original demo content.** Several PRD-family assumptions (unlimited offline downloads, early-access tiers, translation rights) depend entirely on future licensing and are capped accordingly in scope.
 
-**Recommendation: GO** for a high-fidelity functional prototype with fictional content, reader-first IA, full admin panel, and RLS-secured multi-role auth — with five explicit scope guardrails (no payments, no downloads, no "licensed" claims, no real content, no email/OTP hardening) and re-validation of the missing source documents queued before any public-facing pilot.
+**Recommendation (updated in Phase 0.1): conditional GO** — Release A (foundation, two readers, publishing workflow, 6 series) may start immediately; Releases B/C are gated on source-document reconciliation (`CONTRADICTION_REPORT.md` §2). Five scope guardrails unchanged: no payments, no downloads, no "licensed" claims, no real content, no email/OTP hardening.
 
 ---
 
@@ -42,7 +44,7 @@ On legality: hosting real manga/webtoon/novel content requires rights acquisitio
 | M1 | Global webcomics market ≈ **USD 7.6B (2024)**, sustained growth projected | Credence Research, Dec 2024 — https://www.credenceresearch.com/report/webcomics-market |
 | M2 | Global webtoon market projected **USD 10.85B (2025) → 14.44B (2026)** (Mordor Intelligence) | GII Research — https://www.giiresearch.com |
 | M3 | **GCC anime market USD 644M (2024) → USD 1,265M (2033), CAGR ~7.8%** | OpenPR, Jul 2025 — https://www.openpr.com |
-| M4 | **Wider MENA anime market expected to grow ~13.6% annually beyond 2025, with Saudi Arabia at its core**; Saudi fan culture "thriving" | Vivify Japan — https://www.vivify-jp.com |
+| M4 | Wider MENA anime market growth (~13.6%/yr) and "Saudi at its core" — ⚠️ **downgraded to Inference/low-confidence in Phase 0.1** (undated, blog-grade source); directional only | Vivify Japan — https://www.vivify-jp.com |
 | M5 | MENA SVOD (paid streaming) market ≈ USD 2.77B (2022), CAGR ~7.9% — useful proxy that paid digital content appetite in the region exists but is mid-sized | UnivDatos — https://univdatos.com |
 | M6 | Light-novels global market ≈ USD 9.4B (2025), CAGR ~7.9% — the "novels" leg of the catalog has real global demand | Dataintelo — https://dataintelo.com |
 | M7 | **"Arabic-language webtoons are gaining traction via partnerships with local publishers. Monetization relies heavily on ad-supported models, as paid adoption lags."** — willingness to pay in Arabic remains the weakest link | 24Market Reports — https://www.24marketreports.com |
