@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useSyncExternalStore, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -11,8 +11,24 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { postComment, reportComment } from "@/lib/actions";
 import type { CommentView } from "@/lib/queries";
 
-function timeAgoAr(date: Date) {
-  const diff = Date.now() - new Date(date).getTime();
+/**
+ * Relative Arabic time label. Deterministic two-pass rendering via
+ * useSyncExternalStore: React uses the SERVER snapshot (null → empty label)
+ * during hydration, so SSR HTML and the first client paint match exactly
+ * (no React #418 mismatch), then upgrades to the live client snapshot
+ * (refreshed every 60 s). Replaces the previous Date.now()-during-render
+ * bug logged during the Neon migration QA.
+ */
+function subscribeMinute(callback: () => void): () => void {
+  const id = setInterval(callback, 60_000);
+  return () => clearInterval(id);
+}
+const getClientNow = (): number | null => Date.now();
+const getServerNow = (): number | null => null;
+
+function timeAgoAr(date: Date, now: number | null): string {
+  if (now === null) return "";
+  const diff = now - new Date(date).getTime();
   const days = Math.floor(diff / 86400000);
   if (days < 1) return "اليوم";
   if (days < 30) return `قبل ${days} يوم`;
@@ -41,6 +57,8 @@ export function CommentsSection({
   const [body, setBody] = useState("");
   const [error, setError] = useState("");
   const [reported, setReported] = useState<Set<string>>(new Set());
+  // Hydration-safe time anchor (see timeAgoAr docstring above).
+  const now = useSyncExternalStore(subscribeMinute, getClientNow, getServerNow);
 
   const submit = () => {
     setError("");
@@ -129,7 +147,7 @@ export function CommentsSection({
                       فريق باني
                     </span>
                   )}
-                  <span className="text-[11px] text-muted-foreground">{timeAgoAr(c.createdAt)}</span>
+                  <time dateTime={new Date(c.createdAt).toISOString()} className="text-[11px] text-muted-foreground">{timeAgoAr(c.createdAt, now)}</time>
                   {c.chapterNumber !== null && (
                     <span className="rounded-md bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
                       عن الفصل {c.chapterNumber}

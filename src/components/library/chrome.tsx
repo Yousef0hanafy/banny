@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { BookOpenText, BookMarked, Compass, Library, Search, Menu, LogOut, ShieldCheck, UserRound } from "lucide-react";
+import { BrandMark } from "@/components/library/brand-mark";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -18,8 +19,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 function Logo() {
   return (
     <Link href="/" className="flex items-center gap-2.5 group" aria-label="مكتبة باني — الرئيسية">
-      <span className="grid size-9 place-items-center rounded-xl bg-primary/15 border border-primary/30 text-primary transition group-hover:bg-primary/25">
-        <BookOpenText className="size-5" aria-hidden />
+      <span className="transition group-hover:brightness-125">
+        <BrandMark className="size-9" />
       </span>
       <span className="leading-tight">
         <span className="block font-bold text-[15px] text-foreground">مكتبة باني</span>

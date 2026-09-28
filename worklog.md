@@ -170,3 +170,24 @@ Stage Summary:
 - RELEASE B COMPLETE: novel reader + library/updates/profile + community + moderation + collections/users/dashboard + scheduler + 12-series seed, all on Neon, browser-verified end to end.
 - Live chapter rule introduced app-wide: workflow=published AND scheduledFor<=now; scheduled chapters surface publicly as "ينشر قريبًا".
 - Open: source-doc reconciliation stays post-hoc (FD-10); Release C next (RTL/responsive audit, error/empty states, monitoring placeholders, accessibility, security audit, deployment docs) + React #418 audit + prisma.config.ts + Neon password rotation recommendation.
+
+---
+Task ID: C (Release C — Polish and Production Preparation)
+Agent: Super Z (main agent, lead product engineer)
+Task: Founder uploaded "Blogo.jpg" (rabbit logo/favicon) — file never arrived (delivery failure #3); founder said "continue" → execute full Release C scope per RELEASE_PLAN.
+
+Work Log:
+- DELIVERY FAILURE #3 logged honestly: /upload/ empty, no logo/favicon anywhere on disk; NO stand-in fabricated as the real brand. Temporary placeholder ب letter-mark shipped via single swap-point src/components/library/brand-mark.tsx (wired into header, login, admin sidebar/mobile) + src/app/icon.svg favicon + 180px apple-icon.png (auto-registered in metadata); unreferenced scaffold public/logo.svg removed. Swap instructions in component docstring + README.
+- C-1 HYDRATION (#418) ROOT-CAUSED: comments-section.tsx computed Date.now() during client render (server≠client time). Fixed with useSyncExternalStore (server snapshot null → empty label; client snapshot refreshed every 60s; React hydrates with server snapshot → zero mismatch). Verified live: <time dateTime> renders «اليوم» post-mount; semantic <time> added. Respects the react-hooks/set-state-in-effect rule.
+- C-2: Arabic error.tsx (retry+digest+captureError) + global-error.tsx; shared skeletons.tsx + loading.tsx for /, explore, series/[slug], library, updates, admin + immersive ReaderSkeleton ×3 formats. Empty states audited — no gaps.
+- C-5 SECURITY AUDIT (docs/SECURITY_AUDIT.md, PASS + A-1..A-4 accepted risks): security headers live-verified (CSP w/ frame-ancestors 'none' + object-src 'none' + base-uri/form-action, XFO DENY, nosniff, referrer, permissions-policy); next.config hardened (ignoreBuildErrors removed, StrictMode on); auth sweep (requireEditor ×8, admin-only setUserRole w/ self-demotion guard, session-scoped reader actions); zod sweep 12/12 actions safeParse(input:unknown); secrets clean (only .env.example tracked, zero NEXT_PUBLIC_* in code); DEPENDENCY AUDIT: 46 zero-ref packages removed + 28 orphaned ui/ wrappers deleted (persisted scripts/dep-usage-audit.mjs), bumps next 16.3.6 / next-auth 4.24.15 / prisma 6.19.3 / sharp 0.35.5 → prod vulns 23 (2 critical) → 6 high 0 critical (remaining = A-1..A-3 documented, A-4 founder rotation).
+- C-6: GET /api/health (opaque DB probe, 503 on failure) + lib/analytics.ts trackEvent/captureError no-op stubs w/ one-step PostHog/Sentry activation notes.
+- C-3/C-4 browser matrix (persisted scripts/qa-release-c.sh, one-call setsid pattern): 360/768/1280 zero horizontal overflow, landmarks + bottom nav(5) + mirrored RTL ok; Tab :focus-visible ring, 17 aria-labeled controls, Arabic 404; guest /admin → /login?callbackUrl=/admin; webtoon reader loads on mobile. Screenshots research/qa-c-*.png.
+- INCIDENT (resolved, known pattern): stale standalone server from prior session held :3000 (EADDRINUSE → QA hit old build, /api/health 404); killed, fresh server → health {"status":"ok","database":"ok"}, headers verified.
+- Regression: typecheck clean, lint clean, prod build GREEN on next 16.3.6 (ƒ routes; icons registered); Neon constraint verifier re-run 41/41 PASS.
+- C-7: README → Release C (feature table, Vercel+Neon deploy runbook ≤30min, 12-series content table, new scripts, C QA evidence, honest limitations incl. logo-pending).
+- Deliverables: docs/RELEASE_C_REPORT.md (exit criteria scorecard 3/3), docs/SECURITY_AUDIT.md, screenshots, worklog.
+
+Stage Summary:
+- RELEASE C COMPLETE — all three exit criteria met; QA matrix green; security audit signed off in-repo with documented accepted risks.
+- All releases (A, B, C) now done on Neon. Remaining: founder actions only — rotate neondb_owner password (A-4), re-deliver rabbit logo (5-min swap), source-doc reconciliation (FD-10 post-hoc); backlog: Prisma 7 + prisma.config.ts (clears A-2), nonce-CSP + monitoring activation.

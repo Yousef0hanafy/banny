@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
-import { BookOpenText, Loader2, LogIn, ShieldCheck, UserRound } from "lucide-react";
+import { Loader2, LogIn, ShieldCheck, UserRound } from "lucide-react";
+import { BrandMark } from "@/components/library/brand-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,8 +47,8 @@ function LoginForm() {
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8 text-center">
-        <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-primary/15 border border-primary/30 text-primary">
-          <BookOpenText className="size-7" aria-hidden />
+        <span className="mx-auto block w-14">
+          <BrandMark className="size-14" />
         </span>
         <h1 className="mt-4 text-2xl font-bold text-foreground">مرحبًا بعودتك</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">

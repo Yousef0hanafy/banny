@@ -1,13 +1,25 @@
 # مكتبة باني — Bunny Library
 
 > Your personal Arabic library for stories worth getting lost in.
-> **Release B — Complete Demo Experience** (see `docs/RELEASE_PLAN.md`)
+> **Release C — Polish and Production Preparation** (see `docs/RELEASE_PLAN.md`)
 
 An Arabic-first, dark-mode, premium reading platform prototype for manga, webtoons, and novels — reader-first, RTL-native, fully functional, seeded with 100% original fictional content.
 
 **Demo notice (binding):** this is a product prototype. All series, chapters, covers, names, prose, and comments are original fictional content created for the demo. Nothing is licensed, official, or real. No payments. No downloads. No purchase flows.
 
 ---
+
+## What's in Release C (adds to Release B)
+
+| Area | What changed |
+|---|---|
+| **Hydration fix** | React #418 eliminated — comment timestamps render via `useSyncExternalStore` (server/client deterministic two-pass; refreshed every 60 s) |
+| **Error boundaries** | Arabic `error.tsx` (retry + digest) + `global-error.tsx` last-resort fallback, Sentry-ready |
+| **Loading skeletons** | Per-route Arabic skeletons (home, explore, series, library, updates, admin) + immersive reader loader |
+| **Monitoring placeholders** | `GET /api/health` (liveness + opaque DB probe), `src/lib/analytics.ts` no-op stubs with one-step PostHog/Sentry activation notes |
+| **Security hardening** | Security headers on every route (CSP/frame-ancestors/nosniff/referrer/permissions), `ignoreBuildErrors` removed, StrictMode on, **46 unused scaffold packages removed**, next 16.1.1→16.3.6 + next-auth 4.24.15 + sharp 0.35.5 — audit in `docs/SECURITY_AUDIT.md` |
+| **Brand + favicon** | Single swap-point `BrandMark` component (header/login/admin), `icon.svg` + 180px `apple-icon.png`. ⚠ Placeholder ب letter-mark — the founder's rabbit logo (Blogo.jpg) never reached the server (delivery failure ×3); replace `src/components/library/brand-mark.tsx` + `src/app/icon.svg` when it arrives |
+| **Audit matrix** | RTL/responsive verified at 360/768/1280 (no horizontal overflow, bottom nav, mirrored layout), a11y baseline (focus-visible rings, aria labels, landmarks, AA contrast tokens) |
 
 ## What's in Release B (adds to Release A)
 
@@ -38,7 +50,7 @@ An Arabic-first, dark-mode, premium reading platform prototype for manga, webtoo
 | Admin (guarded): dashboard-lite, series list/create/edit, chapters manager with draft→review→published workflow + publish/unpublish, chapter creation | `/admin`, `/admin/series`, `/admin/series/new`, `/admin/series/[id]`, `/admin/chapters`, `/admin/chapters/new` |
 | 404 (Arabic) | any unknown route |
 
-**Deferred to Release C**: responsive/RTL audit, error/empty-state sweep, monitoring placeholders, accessibility baseline, security audit, deployment runbook.
+**Release C status**: the deferred list above is now **done** — see the Release C table and `docs/RELEASE_C_REPORT.md`.
 
 ## Tech stack
 
@@ -190,6 +202,19 @@ Guests can browse and read; their progress persists in `localStorage` only (by d
 | نبض المدينة صفر | webtoon | 4 | sci-fi/action |
 | خزانة زينب | webtoon | 3 (hiatus) | historical/drama |
 
+Plus Release B series (all original fiction):
+
+| Series | Format | Notes |
+|---|---|---|
+| رسائل من الطابق السابع | novel | 3 chapters of original Arabic prose |
+| رملٌ يحفظ الأسماء | novel | 3 chapters |
+| قطار السادسة والنصف | novel | 3 chapters |
+| مرسى النجوم القديمة | novel | 3 chapters |
+| المدينة التي نسيت المطر | manga | 4 chapters |
+| موسم المدّ الأخير | webtoon | ch4 future-scheduled (public "ينشر قريبًا") |
+
+Totals: 12 series · 46 chapters · 3 collections (incl. novel collection «أصوات مُحبّرة») · 24 comments · 21 ratings · 2 moderation reports · 7 library items.
+
 Plus: 2 editorial collections, 3 seeded reading-progress rows for the reader account, ~320 analytics events, 226 generated art files.
 
 ## Admin workflow (what to demo)
@@ -215,6 +240,48 @@ Plus: 2 editorial collections, 3 seeded reading-progress rows for the reader acc
 | `node scripts/generate-art.mjs` | regenerate all demo art |
 | `node scripts/verify-neon-constraints.mjs` | post-migration DB constraint/enum/FK verification |
 | `node scripts/db-failsafe-check.mjs` | verify the app fails safely with missing/wrong DB env vars |
+| `node scripts/dep-usage-audit.mjs` | list zero-reference dependencies (keep the dependency tree lean) |
+| `bash scripts/qa-release-c.sh` | self-contained browser QA matrix (RTL/responsive/a11y/404/guard) |
+| `curl localhost:3000/api/health` | liveness + DB probe (opaque, monitoring-ready) |
+
+## Deploy runbook (Vercel + Neon)
+
+Target: a new developer goes clone → live demo in ≤ 30 minutes with this README alone.
+
+1. **Neon project** — create (or reuse) a project at neon.tech. Copy **two** connection strings
+   from *Connect*: pooled (toggle ON) → `DATABASE_URL`, direct (toggle OFF) → `DIRECT_URL`.
+2. **Secrets** — locally: `.env.local` (chmod 600, never committed); on Vercel: Project →
+   Settings → Environment Variables → add `DATABASE_URL`, `DIRECT_URL`, `NEXTAUTH_SECRET`
+   (`openssl rand -base64 32`), `NEXTAUTH_URL` (the deployment origin). Values never in chat/git.
+3. **Schema** — `bun install && bun run db:generate && bun run db:migrate:deploy` applies the
+   versioned migrations to Neon (uses `DIRECT_URL`).
+4. **Art + seed** — `node scripts/generate-art.mjs` (writes `public/art/**`), then
+   `bun run db:seed` (idempotent). Re-running seed on an already-seeded DB changes nothing.
+5. **Run** — dev: `bun run dev`. Production: `bun run build && bun run start` (standalone).
+   Health probe: `curl /api/health` → `{"status":"ok","database":"ok",...}`.
+6. **Vercel** — import the repo, framework auto-detects Next.js; the build command already
+   copies static assets into the standalone output. Add the 4 env vars from step 2. Every DB
+   route is `force-dynamic` (ƒ), so no ISR/cache surprises. First deploy after step 3–4 shows
+   the full seeded demo.
+7. **Verify after deploy** — visit `/` (12 series, RTL), `/api/health`, `/admin` as admin →
+   dashboard; sign in with any demo account below.
+
+Rollback: Neon PITR per [Rollback / recovery](#rollback--recovery); Vercel instant rollback to
+any prior deployment from the dashboard.
+
+## QA evidence (Release C — browser-verified)
+
+- Security headers verified live on every response (CSP, X-Frame-Options DENY, nosniff,
+  referrer, permissions-policy); `/api/health` returns `{status:"ok",database:"ok"}`.
+- Hydration: `<time>` elements render empty on SSR and upgrade to «اليوم/قبل N يوم» post-mount
+  (useSyncExternalStore) — the React #418 class is structurally eliminated.
+- RTL/responsive matrix: 360 / 768 / 1280 — zero horizontal overflow on all three; bottom nav
+  (5 items) on mobile; mirrored layouts correct.
+- A11y: Tab focus-visible ring on primary nav; 17 aria-labeled controls on home; landmarks
+  (main/nav/header/footer) present; Arabic 404 and error boundaries on-brand.
+- Guest → `/admin` redirects to `/login?callbackUrl=/admin` (guard layer 1).
+- Neon constraint verifier re-run after all changes: **41/41 PASS**.
+- typecheck clean · ESLint clean · production build green (next 16.3.6).
 
 ## QA evidence (Release A exit criteria — browser-verified)
 
@@ -228,9 +295,13 @@ Plus: 2 editorial collections, 3 seeded reading-progress rows for the reader acc
 - Explore search + no-results state verified.
 - RTL mirroring, mobile 390px layout (bottom nav), console error-free, ESLint clean.
 
-## Known Release-A limitations (by design)
+## Known limitations (by design)
 
-- «أضف إلى مكتبتي» button is visible but disabled with a «قريبًا» tag (library ships in B).
-- New admin-created series have no cover art until the Release B upload flow.
-- Comments, ratings, collections admin, scheduler, analytics charts → Release B.
-- Monitoring/accessibility/deployment hardening → Release C.
+- Brand mark + favicon are a placeholder ب letter-mark pending the founder's rabbit logo
+  (swap point: `src/components/library/brand-mark.tsx` + `src/app/icon.svg` + regenerate
+  `src/app/apple-icon.png`).
+- CSP allows inline scripts (Next.js bootstrap constraint) — nonce-based CSP is the first
+  production-hardening item (see `docs/SECURITY_AUDIT.md` A-1).
+- Monitoring is placeholder-only by design (no external calls) — activation notes in
+  `src/lib/analytics.ts`.
+- Source-document reconciliation stays post-hoc (FD-10).
