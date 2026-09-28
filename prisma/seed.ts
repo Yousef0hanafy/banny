@@ -163,6 +163,38 @@ async function seedProgress() {
       },
     });
   }
+
+  /* Release D (FD-12): completed demo chapters so streak badges and the
+   * "فصل أتممته" counter reflect a lived-in reading history.
+   * Idempotent via (profileId, chapterId) unique — upsert is safe on re-run. */
+  const COMPLETED_DEMO = [
+    { seriesSlug: "the-six-thirty-train", chapterNumbers: [1, 2] },
+    { seriesSlug: "letters-from-the-seventh-floor", chapterNumbers: [1] },
+  ];
+  for (const entry of COMPLETED_DEMO) {
+    const series = await db.series.findUnique({ where: { slug: entry.seriesSlug } });
+    if (!series) continue;
+    for (const number of entry.chapterNumbers) {
+      const chapter = await db.chapter.findUnique({
+        where: { seriesId_number: { seriesId: series.id, number } },
+      });
+      if (!chapter) continue;
+      const pages = await db.chapterPage.count({ where: { chapterId: chapter.id } });
+      const pageIndex = Math.max(pages - 1, 0);
+      await db.readingProgress.upsert({
+        where: { profileId_chapterId: { profileId: reader.id, chapterId: chapter.id } },
+        update: { pageIndex, percent: 100, completed: true },
+        create: {
+          profileId: reader.id,
+          seriesId: series.id,
+          chapterId: chapter.id,
+          pageIndex,
+          percent: 100,
+          completed: true,
+        },
+      });
+    }
+  }
 }
 
 async function seedAnalytics() {
@@ -187,6 +219,33 @@ async function seedAnalytics() {
       });
     }
   }
+
+  /* Release D (FD-12): guarantee the demo reader a 10-day unbroken streak.
+   * Deterministic (same mulberry32 stream) and guarded by the empty-table
+   * check above, so re-running the seed stays byte-identical. */
+  if (reader) {
+    const readerSeries = series.filter((s) =>
+      ["wedding-of-the-red-moon", "warden-of-the-twilight-gate", "letters-from-the-seventh-floor", "the-six-thirty-train"].includes(s.slug)
+    );
+    for (let d = 9; d >= 0; d--) {
+      const base = daysAgo(d, false);
+      if (d === 0) {
+        // today: keep base AND its follow-up page events safely in the past —
+        // page events add up to +25 min, so start at least 40 min back
+        base.setMinutes(base.getMinutes() - (40 + Math.floor(rng() * 10)));
+      } else {
+        base.setHours(19, 10 + Math.floor(rng() * 40), 0, 0);
+      }
+      const s = readerSeries[Math.floor(rng() * readerSeries.length)];
+      events.push({ type: "read_start", seriesId: s.id, profileId: reader.id, metaJson: "{}", createdAt: base });
+      for (let k = 0; k < 2; k++) {
+        const page = new Date(base);
+        page.setMinutes(page.getMinutes() + 5 + Math.floor(rng() * 20));
+        events.push({ type: "read_page", seriesId: s.id, profileId: reader.id, metaJson: "{}", createdAt: page });
+      }
+    }
+  }
+
   await db.analyticsEvent.createMany({ data: events });
 }
 

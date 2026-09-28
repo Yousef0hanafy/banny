@@ -2,15 +2,17 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { BookMarked, BookOpenCheck, MessageSquare, Star, History } from "lucide-react";
+import { BookMarked, BookOpenCheck, Check, Flame, MessageSquare, Star, History, Trophy } from "lucide-react";
 import { SiteHeader, SiteFooter, BottomNav } from "@/components/library/chrome";
 import { ProfileSettings } from "@/components/library/profile-settings";
+import { ReadingActivityChart } from "@/components/library/reading-activity-chart";
 import {
   requireProfile,
   getProfileStats,
   getProfileActivity,
   getFavoriteGenres,
 } from "@/lib/queries";
+import { getReadingStats } from "@/lib/reading-stats";
 import { EVENT_LABELS } from "@/lib/labels";
 
 export const dynamic = "force-dynamic";
@@ -25,12 +27,21 @@ function timeAgoAr(date: Date) {
   return `قبل ${Math.floor(days / 30)} شهر`;
 }
 
+/** Arabic number agreement for أيام: 1 يوم · 2 يومان · 3–10 أيام · 11+ يومًا */
+function daysUnitAr(n: number): string {
+  if (n === 1) return "يوم";
+  if (n === 2) return "يومان";
+  if (n >= 3 && n <= 10) return "أيام";
+  return "يومًا";
+}
+
 export default async function ProfilePage() {
   const profile = await requireProfile();
-  const [stats, activity, genres] = await Promise.all([
+  const [stats, activity, genres, readingStats] = await Promise.all([
     getProfileStats(profile.id),
     getProfileActivity(profile.id),
     getFavoriteGenres(profile.id),
+    getReadingStats(profile.id),
   ]);
 
   const statCards = [
@@ -72,6 +83,95 @@ export default async function ProfilePage() {
                 <p className="text-xs text-muted-foreground">{s.label}</p>
               </Link>
             ))}
+          </section>
+
+          {/* reading streak (Release D, FD-12) */}
+          <section aria-label="سلسلة القراءة" className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-card">
+            <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+              <div className="flex items-center gap-4">
+                <span
+                  className={`flex size-16 shrink-0 items-center justify-center rounded-2xl border ${
+                    readingStats.currentStreak > 0
+                      ? "border-primary/40 bg-primary/15"
+                      : "border-border bg-secondary/60"
+                  }`}
+                  aria-hidden
+                >
+                  <Flame
+                    className={`size-8 ${
+                      readingStats.currentStreak > 0 ? "text-primary" : "text-muted-foreground/50"
+                    }`}
+                  />
+                </span>
+                <div>
+                  <p className="text-sm text-muted-foreground">سلسلة قراءتك الحالية</p>
+                  <p className="text-3xl font-bold tabular-nums leading-tight">
+                    {readingStats.currentStreak}
+                    <span className="ms-1.5 text-sm font-medium text-muted-foreground">
+                      {daysUnitAr(readingStats.currentStreak)}
+                    </span>
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    {readingStats.currentStreak > 0
+                      ? "واصل القراءة اليوم لتمتد السلسلة"
+                      : "اقرأ اليوم لتشتعل السلسلة من جديد"}
+                  </p>
+                </div>
+              </div>
+              <dl className="grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-xl border border-border/50 bg-secondary/40 px-3 py-2">
+                  <dt className="text-[11px] text-muted-foreground">أطول سلسلة</dt>
+                  <dd className="text-lg font-bold tabular-nums">{readingStats.longestStreak}</dd>
+                </div>
+                <div className="rounded-xl border border-border/50 bg-secondary/40 px-3 py-2">
+                  <dt className="text-[11px] text-muted-foreground">أيام نشطة (30 يومًا)</dt>
+                  <dd className="text-lg font-bold tabular-nums">{readingStats.daysActive30}</dd>
+                </div>
+                <div className="rounded-xl border border-border/50 bg-secondary/40 px-3 py-2">
+                  <dt className="text-[11px] text-muted-foreground">فصل أتممته</dt>
+                  <dd className="text-lg font-bold tabular-nums">{readingStats.completedChapters}</dd>
+                </div>
+              </dl>
+            </div>
+            <div className="border-t border-border/50 px-4 pb-3 pt-4 sm:px-5">
+              <ReadingActivityChart data={readingStats.weekly} />
+            </div>
+          </section>
+
+          {/* badges (Release D, FD-12) */}
+          <section aria-label="شارات القراءة" className="mt-6">
+            <h2 className="mb-3 flex items-center gap-1.5 text-sm font-bold">
+              <Trophy className="size-4 text-gold" aria-hidden />
+              شاراتك
+            </h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {readingStats.badges.map((b) => (
+                <div
+                  key={b.id}
+                  className={`rounded-2xl border p-3.5 transition ${
+                    b.earned
+                      ? "border-gold/35 bg-gradient-to-b from-gold/10 to-transparent"
+                      : "border-dashed border-border/60 bg-card opacity-70"
+                  }`}
+                >
+                  <p className={`text-sm font-bold ${b.earned ? "text-gold" : "text-muted-foreground"}`}>
+                    {b.labelAr}
+                  </p>
+                  <p className="mt-1 text-[11px] leading-5 text-muted-foreground">{b.descriptionAr}</p>
+                  {!b.earned && b.hintAr && (
+                    <p className="mt-1.5 inline-block rounded-full bg-secondary px-2 py-0.5 text-[10px] tabular-nums text-muted-foreground">
+                      {b.hintAr}
+                    </p>
+                  )}
+                  {b.earned && (
+                    <p className="mt-1.5 flex items-center gap-1 text-[10px] font-medium text-gold/90">
+                      <Check className="size-3" aria-hidden />
+                      مُكتسبة
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
           </section>
 
           <div className="mt-7 grid gap-6 lg:grid-cols-2">

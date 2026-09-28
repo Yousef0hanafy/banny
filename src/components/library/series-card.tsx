@@ -8,9 +8,12 @@ import type { SeriesCard as SeriesCardType } from "@/lib/queries";
 export function SeriesCardItem({
   series,
   badge,
+  reasonAr,
 }: {
   series: Pick<SeriesCardType, "slug" | "titleAr" | "coverPath" | "format" | "ratingAvg" | "genres" | "status" | "chapterCount">;
   badge?: string;
+  /** Release D "For You": explainable recommendation chip (FD-12) */
+  reasonAr?: string;
 }) {
   return (
     <Link
@@ -46,9 +49,15 @@ export function SeriesCardItem({
       <p className="mt-2 line-clamp-1 text-sm font-medium text-foreground transition group-hover:text-primary">
         {series.titleAr}
       </p>
-      <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
-        {series.genres.slice(0, 2).join(" · ")}
-      </p>
+      {reasonAr ? (
+        <p className="mt-0.5 line-clamp-1 text-[11px] font-medium text-primary/90" title={reasonAr}>
+          {reasonAr}
+        </p>
+      ) : (
+        <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
+          {series.genres.slice(0, 2).join(" · ")}
+        </p>
+      )}
     </Link>
   );
 }

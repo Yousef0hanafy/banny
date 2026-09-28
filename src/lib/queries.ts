@@ -78,7 +78,7 @@ export type ExploreFilters = {
   sort?: string; // popular | newest | rating
 };
 
-function toCard(s: {
+export function toCard(s: {
   id: string;
   slug: string;
   titleAr: string;
@@ -116,7 +116,7 @@ function toCard(s: {
   };
 }
 
-const cardInclude = {
+export const cardInclude = {
   chapters: {
     where: liveChapterWhere(),
     select: { id: true, publishedAt: true, scheduledFor: true },

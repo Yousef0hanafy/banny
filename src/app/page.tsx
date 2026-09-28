@@ -14,6 +14,7 @@ import {
   currentProfileOrNull,
   parseJsonArray,
 } from "@/lib/queries";
+import { getForYouSeries } from "@/lib/foryou";
 import { FORMAT_LABELS } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -32,8 +33,9 @@ function timeAgoAr(date: Date) {
 
 export default async function HomePage() {
   const profile = await currentProfileOrNull();
-  const [continueItems, latest, trending, newest, genres, collections] = await Promise.all([
+  const [continueItems, forYou, latest, trending, newest, genres, collections] = await Promise.all([
     profile ? getContinueReading(profile.id) : Promise.resolve([]),
+    profile ? getForYouSeries(profile.id) : Promise.resolve([]),
     getLatestUpdates(10),
     getTrendingSeries(8),
     getNewestSeries(8),
@@ -63,6 +65,15 @@ export default async function HomePage() {
         <ContinueReadingHero initialItems={continueItems} />
 
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          {/* لك — توصيات مبنية على قراءاتك (Release D, FD-12) */}
+          {forYou.length > 0 && (
+            <Rail title="لك — مقترحات من قراءاتك">
+              {forYou.map((f) => (
+                <SeriesCardItem key={f.series.id} series={f.series} reasonAr={f.reasonAr} />
+              ))}
+            </Rail>
+          )}
+
           {/* أحدث التحديثات */}
           <Rail title="أحدث التحديثات" href="/explore?sort=newest">
             {latest.map((u) => (

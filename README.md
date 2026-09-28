@@ -1,11 +1,25 @@
 # مكتبة باني — Bunny Library
 
 > Your personal Arabic library for stories worth getting lost in.
-> **Release C — Polish and Production Preparation** (see `docs/RELEASE_PLAN.md`)
+> **Release D — Personalization & Retention** (see `docs/RELEASE_PLAN.md` + `docs/RELEASE_D_REPORT.md`)
 
 An Arabic-first, dark-mode, premium reading platform prototype for manga, webtoons, and novels — reader-first, RTL-native, fully functional, seeded with 100% original fictional content.
 
 **Demo notice (binding):** this is a product prototype. All series, chapters, covers, names, prose, and comments are original fictional content created for the demo. Nothing is licensed, official, or real. No payments. No downloads. No purchase flows.
+
+---
+
+## What's in Release D (adds to Release C)
+
+| Area | What changed |
+|---|---|
+| **"لك" For You rail** (home) | Zero-schema personalized recommendations (`src/lib/foryou.ts`): genre affinity from the reader's own footprint (ReadingProgress + LibraryItem + Ratings with 5★/1★ weighting), candidates = published series the reader has NOT touched/shelved/rated, popularity tiebreak. **Explainable**: every card carries an Arabic reason chip — "لأنك قرأت «…»" / "يشبه «…» من مكتبتك". Cold-start rule: with <2 history series (or no positive affinity) the rail does not render — no noise that doesn't concern you (D-01) |
+| **Reading streak + stats** (profile) | `src/lib/reading-stats.ts`: current streak (webtoon convention — today active, or yesterday "at risk"), longest streak (365-day window), days-active/30, completed chapters, 14-day personal activity area chart (Recharts, same visual language as admin chart). Derived from AnalyticsEvent read_* events ∪ ReadingProgress touches — **zero schema migrations** |
+| **Badges (شاراتك)** | 8 deterministic badges (first chapter, 3-day streak, 7-day streak, 10 chapters, finisher shelf, first rating, first comment, 5-series collector) shown earned (gold) or locked with an Arabic progress hint |
+| **Seed** | Demo reader now has a guaranteed 10-day unbroken streak (deterministic, empty-table-guarded → seed stays idempotent ×2: 348 events) + 3 completed demo chapters for a lived-in badge spread (7/8 earned, "3/10 فصلًا" hint on the locked one). Events: 318 → 348 |
+| **QA infrastructure** | `scripts/qa-local-pg.mjs` — ephemeral embedded **PostgreSQL 18** on 127.0.0.1:54329 (/tmp data dir) so full runtime QA runs while Neon credentials are pending founder rotation (see §Known limitations) |
+
+**Release D status**: browser-verified end-to-end on the local QA Postgres — see `docs/RELEASE_D_REPORT.md`.
 
 ---
 
@@ -303,6 +317,13 @@ any prior deployment from the dashboard.
 
 ## Known limitations (by design)
 
+- **Neon credentials pending founder rotation** (sandbox-reset incident, SECURITY_AUDIT §9):
+  the sandbox lost the only copy of the pooled/direct URLs; the app here runs QA against a
+  local embedded Postgres 18 (`scripts/qa-local-pg.mjs`, port 54329, /tmp data dir — dev/QA
+  only, never a runtime fallback). When the founder delivers ROTATED strings into `.env.local`
+  (`DATABASE_URL` pooled + `DIRECT_URL` direct), the re-verification chain is:
+  `db:status` → `db:migrate:deploy` (expect "up to date") → `node scripts/verify-neon-constraints.mjs`
+  (41/41) → `db:seed` ×2 → restart → spot-check home For You + profile streak against Neon data.
 - Brand mark + favicon are the ب letter-mark — official standing brand per FD-11
   (founder dropped the rabbit-logo delivery on 2026-09-28). If the founder ever
   reopens it, one command completes the swap:
