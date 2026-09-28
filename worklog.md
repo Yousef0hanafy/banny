@@ -206,3 +206,23 @@ Work Log:
 Stage Summary:
 - Logo swap is now a single command the moment the file actually arrives; pipeline proven by self-test.
 - Blocked on founder: re-deliver logo (chat attachment / base64 / URL), rotate neondb_owner password (A-4).
+---
+Task ID: HARDEN-1
+Agent: Super Z (main agent)
+Task: Founder dropped the logo topic ("Forget about the message") and asked to continue with next steps → execute remaining engineering backlog: FD-11 record, prisma.config.ts (A-2), nonce-based CSP (A-1), docs + regression.
+
+Work Log:
+- FD-11 recorded in docs/FOUNDER_DECISIONS.md: founder dropped the rabbit-logo delivery; ب letter-mark is the standing brand; integrate-logo.mjs stays ready if reopened. README brand rows synced.
+- A-2: prisma.config.ts created (schema/migrations/seed; loads .env.local override then .env — CLI stops auto-loading env when the config exists; fail-loud on missing DATABASE_URL, warn-only DIRECT_URL so `prisma generate` stays portable). package.json "prisma" key removed. Runtime verify (migrate status + seed idempotency) BLOCKED — see incident.
+- INCIDENT (~07:46): sandbox reset dropped ALL gitignored files. .env.local (only copy of Neon pooled+direct URLs) and .env (NEXTAUTH_*) lost. Integrity audit vs git: 514 files mode-only; content deltas = current session edits only. Fresh NEXTAUTH_SECRET generated locally (never in chat/git) + NEXTAUTH_URL written via set-env-local.mjs (0600). Old /tmp mirror .env classified without printing: SQLite-era, not useful. Documented in SECURITY_AUDIT §9 + README incident note. DB-dependent verification now blocked on founder-supplied (rotated) credentials.
+- A-1: middleware rewritten to per-request nonce-based strict-dynamic CSP (official Next pattern: CSP request header → Next stamps scripts; CSP response header → browser enforces). Static CSP removed from next.config.ts (XFO/nosniff/referrer/permissions stay static on ALL routes).
+- PITFALL 1 (next-auth withAuth): wrapper short-circuits on the sign-in page ([signInPage,errorPage].includes(pathname) → bare NextResponse.next()) — /login bypassed the inner middleware. Rewrote WITHOUT withAuth: admin guard via getToken({req,secret}) directly; redirect parity verified (guest /admin → 307 /login?callbackUrl=%2Fadmin).
+- PITFALL 2 (prerendered docs): static HTML can't carry a per-request nonce; full-route-cache HITs bypass middleware header injection (x-nextjs-cache: HIT observed). /login split: server wrapper (force-dynamic) + login-form.tsx client module; not-found.tsx force-dynamic honored (/_not-found now ƒ). Zero prerendered HTML documents remain.
+- PITFALL 3 (QA hygiene): fuser -k silently failed to kill the standalone server → QA2/diagnostics hit the STALE pre-rebuild build and produced false FAILs. qa script now uses pkill + port-dead assertion (FATAL abort if anything still answers).
+- VERIFICATION: scripts/qa-nonce-csp.sh 13/13 PASS (single CSP header on /, /login, /no-such-page; 19/19+17/17+16/16 scripts nonced; no unsafe-eval in prod; XFO intact on API). Real-browser (agent-browser, one-call pattern): /login form fully interactive, ZERO console/page errors (no CSP violations); home renders via DB failsafe, no CSP violations (only expected db-down digest). typecheck clean, lint 0 errors (2 pre-existing warnings: manga-reader location.href — noted, not from this change), production build GREEN (all documents ƒ dynamic; icons static).
+- Deferred (blocked on credentials): sign-in POST + Server Action E2E under strict CSP; migrate status + seed ×2 idempotency through prisma.config.ts.
+- Docs: SECURITY_AUDIT.md §1 rewritten (nonce CSP), A-1→MITIGATED, A-2→PARTIALLY ADDRESSED, new §8 (hardening details + pitfalls) + §9 (incident); README security row, CSP limitation line, incident note.
+
+Stage Summary:
+- A-1 CLOSED (nonce strict CSP live on every document, browser-verified), A-2 code-complete (runtime verify pending), FD-11 recorded.
+- Blocking on founder: rotated Neon connection strings (pooled + direct) — restores DB QA + finishes A-2 verification. NEXTAUTH_SECRET already regenerated.

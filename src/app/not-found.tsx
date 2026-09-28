@@ -2,6 +2,14 @@ import Link from "next/link";
 import { BookX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+/**
+ * Nonce-based CSP (src/middleware.ts) requires dynamically rendered documents;
+ * a prerendered 404 HTML cannot carry the per-request nonce. If Next.js does
+ * not honor this export for not-found, the middleware QA (scripts/qa-nonce-csp.sh)
+ * will show zero nonced scripts on 404s — escalate to a dynamic catch-all route.
+ */
+export const dynamic = "force-dynamic";
+
 export default function NotFound() {
   return (
     <main className="bg-library-glow flex min-h-screen flex-col items-center justify-center px-6 text-center">

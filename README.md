@@ -17,8 +17,8 @@ An Arabic-first, dark-mode, premium reading platform prototype for manga, webtoo
 | **Error boundaries** | Arabic `error.tsx` (retry + digest) + `global-error.tsx` last-resort fallback, Sentry-ready |
 | **Loading skeletons** | Per-route Arabic skeletons (home, explore, series, library, updates, admin) + immersive reader loader |
 | **Monitoring placeholders** | `GET /api/health` (liveness + opaque DB probe), `src/lib/analytics.ts` no-op stubs with one-step PostHog/Sentry activation notes |
-| **Security hardening** | Security headers on every route (CSP/frame-ancestors/nosniff/referrer/permissions), `ignoreBuildErrors` removed, StrictMode on, **46 unused scaffold packages removed**, next 16.1.1→16.3.6 + next-auth 4.24.15 + sharp 0.35.5 — audit in `docs/SECURITY_AUDIT.md` |
-| **Brand + favicon** | Single swap-point `BrandMark` component (header/login/admin). ⚠ Placeholder ب letter-mark — the rabbit logo (Blogo.jpg) never reached the server (delivery failure ×4); one-command swap ready: `node scripts/integrate-logo.mjs <image>` (generates icon.png + favicon.ico + apple-icon.png + brand asset) |
+| **Security hardening** | **Nonce-based strict-dynamic CSP** on every document (`src/middleware.ts`), security headers on all routes (XFO/nosniff/referrer/permissions), `ignoreBuildErrors` removed, StrictMode on, **46 unused scaffold packages removed**, next 16.1.1→16.3.6 + next-auth 4.24.15 + sharp 0.35.5 — audit in `docs/SECURITY_AUDIT.md` (A-1 mitigated §8.1, incident §9) |
+| **Brand + favicon** | Single swap-point `BrandMark` component (header/login/admin). ب letter-mark brand (FD-11: founder dropped the rabbit-logo delivery; placeholder is the standing brand). If ever reopened: one-command swap via `node scripts/integrate-logo.mjs <image>` (icon.png + favicon.ico + apple-icon.png + brand asset) |
 | **Audit matrix** | RTL/responsive verified at 360/768/1280 (no horizontal overflow, bottom nav, mirrored layout), a11y baseline (focus-visible rings, aria labels, landmarks, AA contrast tokens) |
 
 ## What's in Release B (adds to Release A)
@@ -89,6 +89,12 @@ SQL was a design artifact that was **never executed** and is archived, clearly l
    bun run db:seed            # seed demo content (idempotent — safe to re-run)
    bun run dev                # http://localhost:3000
    ```
+
+> ⚠ **2026-09-28 incident note:** a sandbox reset wiped the local `.env.local` (the only
+> copy of the Neon connection strings in the workspace). The database itself is unaffected —
+> only local access was lost. Connection strings must be re-supplied (rotate first — see
+> `docs/SECURITY_AUDIT.md` §9 / A-4). A fresh `NEXTAUTH_SECRET` was generated locally and
+> is already in place.
 
 ### Neon environment variables
 
@@ -297,12 +303,12 @@ any prior deployment from the dashboard.
 
 ## Known limitations (by design)
 
-- Brand mark + favicon are a placeholder ب letter-mark pending the founder's rabbit logo.
-  When the file arrives, one command completes the swap (delivery failure ×4 logged —
-  the attachment never reached the server):
+- Brand mark + favicon are the ب letter-mark — official standing brand per FD-11
+  (founder dropped the rabbit-logo delivery on 2026-09-28). If the founder ever
+  reopens it, one command completes the swap:
 
   ```bash
-  node scripts/integrate-logo.mjs /home/z/my-project/upload/Blogo.jpg
+  node scripts/integrate-logo.mjs /path/to/logo-image
   ```
 
   It generates `src/app/icon.png` + `src/app/favicon.ico` (16/32/48) +
@@ -311,8 +317,7 @@ any prior deployment from the dashboard.
   header/login/admin consumers update automatically). `--cover` switches from
   letterbox-fit to crop-fill; `--test` runs the pipeline self-test without touching
   app files.
-- CSP allows inline scripts (Next.js bootstrap constraint) — nonce-based CSP is the first
-  production-hardening item (see `docs/SECURITY_AUDIT.md` A-1).
+- CSP residual: `style-src 'unsafe-inline'` (Next.js inline critical CSS + Radix style attrs) — scripts are strictly nonce-gated (see `docs/SECURITY_AUDIT.md` §8.1). Sign-in POST + Server Action E2E under strict CSP pending DB credential restoration (§9).
 - Monitoring is placeholder-only by design (no external calls) — activation notes in
   `src/lib/analytics.ts`.
 - Source-document reconciliation stays post-hoc (FD-10).

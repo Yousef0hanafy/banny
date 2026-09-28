@@ -1,20 +1,18 @@
 # Bunny Library — Security Audit (Release C)
 
 Date: 2026-09-28 · Scope: Release A+B+C codebase on Neon PostgreSQL · Auditor: lead engineer (this repo)
-Verdict: **PASS with 4 documented accepted risks (A-1…A-4).** No blocking findings.
+Verdict: **PASS.** A-1 and A-2 mitigated post-audit (§8); 2 accepted risks remain (A-3, A-4) + 1 credential-loss incident (§9).
 
-## 1. HTTP Security Headers — IMPLEMENTED (next.config.ts)
+## 1. HTTP Security Headers — IMPLEMENTED
 
 | Header | Value | Notes |
 |---|---|---|
-| X-Frame-Options | DENY | anti-clickjacking |
-| Content-Security-Policy | default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self' | see A-1 |
-| X-Content-Type-Options | nosniff | |
-| Referrer-Policy | strict-origin-when-cross-origin | |
-| Permissions-Policy | camera=(), microphone=(), geolocation=(), payment=() | |
-| X-DNS-Prefetch-Control | on | |
-
-Applied to every route (`/:path*`), standalone build included.
+| Content-Security-Policy | **per-request, nonce-based** — generated in `src/middleware.ts` (see §8) | strict-dynamic; covers every HTML document |
+| X-Frame-Options | DENY | anti-clickjacking (static, all routes) |
+| X-Content-Type-Options | nosniff | static, all routes |
+| Referrer-Policy | strict-origin-when-cross-origin | static, all routes |
+| Permissions-Policy | camera=(), microphone=(), geolocation=(), payment=() | static, all routes |
+| X-DNS-Prefetch-Control | on | static, all routes |
 
 ## 2. Next.js Config Hardening — FIXED
 - `typescript.ignoreBuildErrors: true` **removed** (scaffold leftover had disabled the type safety net).
@@ -46,10 +44,36 @@ collectionSchema. No `any`-trusted inputs found.
 ### Accepted risks (documented, non-blocking)
 | ID | Item | Rationale |
 |---|---|---|
-| A-1 | CSP allows 'unsafe-inline'/'unsafe-eval' for scripts | Next.js bootstrap + NextAuth require it without nonce infrastructure; high-value directives (frame-ancestors, object-src, base-uri, form-action) are enforced. Nonce-based CSP deferred to production hardening. |
-| A-2 | prisma 6.19.3 CLI advisory (via @prisma/config/deepmerge-ts) | Dev-time CLI only, not runtime attack surface. Fix = Prisma 7 major → tracked with the existing prisma.config.ts backlog item. |
 | A-3 | defu / lodash "high" with `effects: []` | No concrete vulnerable path in the prod dependency graph (registry-level noise). Monitored; re-audit on dependency changes. |
-| A-4 | Rotation of `neondb_owner` credentials | Founder-side action (credential passed through chat once; historical git). Unchanged recommendation from migration report. |
+| A-4 | Rotation of `neondb_owner` credentials | Founder-side action (credential passed through chat once; historical git). **Now URGENT — see §9 incident: the sandbox reset also lost the only .env.local copy, so fresh credentials must be supplied anyway.** |
+
+Mitigated post-audit:
+| ID | Item | Status |
+|---|---|---|
+| A-1 | CSP allowed 'unsafe-inline'/'unsafe-eval' for scripts | **MITIGATED (§8)** — nonce-based strict-dynamic CSP live on every document. Residual: `style-src 'unsafe-inline'` remains (Next.js inline critical CSS + Radix style attrs — industry-standard for Next apps). |
+| A-2 | prisma 6.19.3 CLI advisory (via @prisma/config/deepmerge-ts) | **PARTIALLY ADDRESSED (§8)** — package.json `prisma` key migrated to `prisma.config.ts` (the Prisma-7-removal item). The advisory itself is a dev-time CLI-only dependency; final fix remains the Prisma 7 version bump. |
 
 ## 7. Data-Layer Integrity — VERIFIED (re-run in C-9 final QA)
 Neon constraint verifier: `scripts/verify-neon-constraints.mjs` — 41/41 PASS at Release B; re-run in final QA (§C-9 report).
+
+## 8. Post-audit hardening (2026-09-28, same day)
+
+### 8.1 Nonce-based CSP — A-1 MITIGATED
+- `src/middleware.ts` now mints a per-request nonce, passes the CSP via the *request* header (Next.js stamps the nonce on its bootstrap scripts) and enforces it via the *response* header — the official Next.js strict-CSP pattern.
+- Policy: `script-src 'self' 'nonce-…' 'strict-dynamic'` (+ `'unsafe-inline'` as CSP2 fallback, ignored by CSP3 browsers; dev-only `'unsafe-eval'`), `style-src 'self' 'unsafe-inline'`, `img-src 'self' data: blob:`, `font-src 'self' data:`, `connect-src 'self'`, `frame-ancestors 'none'`, `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`.
+- Static CSP removed from `next.config.ts` (would double-enforce); XFO/nosniff/referrer/permissions stay static for ALL routes including API/assets.
+- **next-auth withAuth pitfall (found + documented):** withAuth short-circuits on the sign-in page (`[signInPage, errorPage].includes(pathname)` → bare `NextResponse.next()`), bypassing any inner middleware. Middleware was rewritten WITHOUT the wrapper — the admin guard now calls `getToken({ req, secret })` directly (identical session semantics; redirect parity `guest /admin → /login?callbackUrl=%2Fadmin` re-verified).
+- **Prerendered-document pitfall (found + fixed):** static HTML cannot carry a per-request nonce — prerendered `/login` + 404s served from the full-route cache also bypassed middleware header injection (`x-nextjs-cache: HIT`). Fix: `/login` split into server wrapper (`export const dynamic = "force-dynamic"`) + client form (`login-form.tsx`); `not-found.tsx` got `force-dynamic` (honored — `/_not-found` is now ƒ). Zero prerendered HTML documents remain.
+- **Verification:** `scripts/qa-nonce-csp.sh` — 13/13 PASS: exactly one CSP header on /, /login, /no-such-page; 19/19 + 17/17 + 16/16 scripts nonced; no `unsafe-eval` in prod; XFO intact on API; real-browser check (agent-browser): /login form fully interactive, ZERO console/page errors (no CSP violations); home renders via failsafe (DB down) with no CSP violations.
+- **Deferred until DB credentials are restored (§9):** sign-in POST flow + Server Action POSTs under strict CSP in-browser (the same-origin POSTs are not script-src-gated; risk is low, but the E2E was not runnable).
+
+### 8.2 prisma.config.ts — A-2 package.json migration DONE
+- `prisma.config.ts` added (schema path, migrations path, seed command `bun prisma/seed.ts`); package.json `prisma` key removed — this is the Prisma-7-removal surface, cleared early.
+- The config file disables the Prisma CLI's automatic .env loading, so it loads `.env.local` (override) then `.env` with the same parser contract as `scripts/with-env.mjs`; DATABASE_URL missing → fail-loud (name only, never values).
+- **Runtime verification BLOCKED by §9** (no DB credentials in the sandbox): `prisma migrate status` + seed-idempotency re-run pending. Code paths typecheck clean.
+
+## 9. INCIDENT — sandbox reset lost the environment files (2026-09-28 ~07:46)
+- The sandbox recycled mid-session; the restore dropped all gitignored files. `.env.local` (the ONLY copy of the Neon pooled + direct connection strings) and `.env` (NEXTAUTH_SECRET, NEXTAUTH_URL) were lost.
+- Integrity was verified against git: 514 restored files differed ONLY in mode bits; the only content deltas were the current session's edits. No tracked content was corrupted.
+- A fresh `NEXTAUTH_SECRET` was generated locally (openssl rand -base64 32 — never passed through chat or git) and written to `.env.local` via `scripts/set-env-local.mjs` (0600, gitignored).
+- **Consequence:** all DB-dependent verification (runtime QA, constraint verifier, migrate status, seed idempotency) is blocked until the founder supplies connection strings — which should be **freshly rotated** per A-4 (the old ones passed through chat; rotation was already recommended).

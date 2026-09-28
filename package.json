@@ -16,9 +16,6 @@
     "db:studio": "node scripts/with-env.mjs prisma studio",
     "db:reset": "node scripts/with-env.mjs prisma migrate reset"
   },
-  "prisma": {
-    "seed": "bun prisma/seed.ts"
-  },
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "@radix-ui/react-avatar": "^1.1.10",
