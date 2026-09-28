@@ -191,3 +191,18 @@ Work Log:
 Stage Summary:
 - RELEASE C COMPLETE — all three exit criteria met; QA matrix green; security audit signed off in-repo with documented accepted risks.
 - All releases (A, B, C) now done on Neon. Remaining: founder actions only — rotate neondb_owner password (A-4), re-deliver rabbit logo (5-min swap), source-doc reconciliation (FD-10 post-hoc); backlog: Prisma 7 + prisma.config.ts (clears A-2), nonce-CSP + monitoring activation.
+---
+Task ID: LOGO-4
+Agent: Super Z (main agent)
+Task: Founder re-sent "Blogo.jpg" (delivery attempt #4) — verify arrival, integrate if present, otherwise prepare the fastest possible swap.
+
+Work Log:
+- Verified delivery: /home/z/my-project/upload/ EMPTY (polled 6× over ~20s); filesystem-wide search for Blogo.jpg / recent images → only our own QA screenshots + generated icons. DELIVERY FAILURE #4 logged — no rabbit logo on disk; NO stand-in fabricated as the real brand.
+- Built scripts/integrate-logo.mjs: one-command brand integration (validate ≥256px/≤25MB → square on #0B0B10 via contain|cover → src/app/icon.png 512 + favicon.ico [16/32/48 PNG-in-ICO, dependency-free encoder] + apple-icon.png 180 + src/assets/brand/logo.png → removes placeholder icon.svg → rewrites brand-mark.tsx to next/image static import, same export signature so header/login/admin consumers stay untouched).
+- Self-test (--test, synthetic TEST-pattern image → research/logo-test/ only, app untouched): ALL PASS (512/180/512 dimensions, ICO header + 3 valid embedded PNG entries).
+- README updated (feature table + known limitations): documents delivery failure ×4 and the one-command swap with flags.
+- Placeholder ب letter-mark remains authoritative in the running app until the real file lands.
+
+Stage Summary:
+- Logo swap is now a single command the moment the file actually arrives; pipeline proven by self-test.
+- Blocked on founder: re-deliver logo (chat attachment / base64 / URL), rotate neondb_owner password (A-4).

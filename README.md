@@ -18,7 +18,7 @@ An Arabic-first, dark-mode, premium reading platform prototype for manga, webtoo
 | **Loading skeletons** | Per-route Arabic skeletons (home, explore, series, library, updates, admin) + immersive reader loader |
 | **Monitoring placeholders** | `GET /api/health` (liveness + opaque DB probe), `src/lib/analytics.ts` no-op stubs with one-step PostHog/Sentry activation notes |
 | **Security hardening** | Security headers on every route (CSP/frame-ancestors/nosniff/referrer/permissions), `ignoreBuildErrors` removed, StrictMode on, **46 unused scaffold packages removed**, next 16.1.1→16.3.6 + next-auth 4.24.15 + sharp 0.35.5 — audit in `docs/SECURITY_AUDIT.md` |
-| **Brand + favicon** | Single swap-point `BrandMark` component (header/login/admin), `icon.svg` + 180px `apple-icon.png`. ⚠ Placeholder ب letter-mark — the founder's rabbit logo (Blogo.jpg) never reached the server (delivery failure ×3); replace `src/components/library/brand-mark.tsx` + `src/app/icon.svg` when it arrives |
+| **Brand + favicon** | Single swap-point `BrandMark` component (header/login/admin). ⚠ Placeholder ب letter-mark — the rabbit logo (Blogo.jpg) never reached the server (delivery failure ×4); one-command swap ready: `node scripts/integrate-logo.mjs <image>` (generates icon.png + favicon.ico + apple-icon.png + brand asset) |
 | **Audit matrix** | RTL/responsive verified at 360/768/1280 (no horizontal overflow, bottom nav, mirrored layout), a11y baseline (focus-visible rings, aria labels, landmarks, AA contrast tokens) |
 
 ## What's in Release B (adds to Release A)
@@ -297,9 +297,20 @@ any prior deployment from the dashboard.
 
 ## Known limitations (by design)
 
-- Brand mark + favicon are a placeholder ب letter-mark pending the founder's rabbit logo
-  (swap point: `src/components/library/brand-mark.tsx` + `src/app/icon.svg` + regenerate
-  `src/app/apple-icon.png`).
+- Brand mark + favicon are a placeholder ب letter-mark pending the founder's rabbit logo.
+  When the file arrives, one command completes the swap (delivery failure ×4 logged —
+  the attachment never reached the server):
+
+  ```bash
+  node scripts/integrate-logo.mjs /home/z/my-project/upload/Blogo.jpg
+  ```
+
+  It generates `src/app/icon.png` + `src/app/favicon.ico` (16/32/48) +
+  `src/app/apple-icon.png` + `src/assets/brand/logo.png`, removes the placeholder
+  `icon.svg`, and rewrites `src/components/library/brand-mark.tsx` (single swap point —
+  header/login/admin consumers update automatically). `--cover` switches from
+  letterbox-fit to crop-fill; `--test` runs the pipeline self-test without touching
+  app files.
 - CSP allows inline scripts (Next.js bootstrap constraint) — nonce-based CSP is the first
   production-hardening item (see `docs/SECURITY_AUDIT.md` A-1).
 - Monitoring is placeholder-only by design (no external calls) — activation notes in
