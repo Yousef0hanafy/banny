@@ -294,12 +294,25 @@ Target: a new developer goes clone → live demo in ≤ 30 minutes with this REA
    `bun run db:seed` (idempotent). Re-running seed on an already-seeded DB changes nothing.
 5. **Run** — dev: `bun run dev`. Production: `bun run build && bun run start` (standalone).
    Health probe: `curl /api/health` → `{"status":"ok","database":"ok",...}`.
-6. **Vercel** — import the repo, framework auto-detects Next.js; the build command already
-   copies static assets into the standalone output. Add the 4 env vars from step 2. Every DB
-   route is `force-dynamic` (ƒ), so no ISR/cache surprises. First deploy after step 3–4 shows
-   the full seeded demo.
+6. **Vercel** — import the repo, framework auto-detects Next.js. Zero-config first build even
+   without env vars: `postinstall` runs `prisma generate` (works with no `DATABASE_URL` — the
+   CLI config only hard-gates DB-touching commands), and the build's standalone asset copy is
+   a guarded no-op on Vercel. Add the 4 env vars from step 2 (Project → Settings → Environment
+   Variables; they apply to Build + Runtime). Every DB route is `force-dynamic` (ƒ), so no
+   ISR/cache surprises. Requires Node ≥ 20.9 (Vercel default is fine). First deploy after
+   step 3–4 shows the full seeded demo.
 7. **Verify after deploy** — visit `/` (12 series, RTL), `/api/health`, `/admin` as admin →
    dashboard; sign in with any demo account below.
+
+### First-deploy troubleshooting (Vercel)
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| Build fails: `[bunny-library] Missing DATABASE_URL for the Prisma CLI` | Old commit before the generate-gate relaxation, or a DB command (`migrate`) ran in build | Update deploy to latest `main`; DB migrations run from your machine / CI with `DIRECT_URL`, never inside Vercel's build |
+| Build fails: `@prisma/client did not initialize yet` | Install ran before `postinstall` existed | Redeploy latest `main` (`postinstall: prisma generate` covers Vercel's bare `next build`) |
+| Build OK, pages 500; logs: `DATABASE_URL is missing or is not a PostgreSQL connection string` | Env vars not set (or set for the wrong environment scope) | Add `DATABASE_URL` (pooled) + `DIRECT_URL` (direct) to **Production** (and Preview) scope, then redeploy |
+| Runtime errors mentioning `NEXTAUTH_SECRET` / sign-in loops | `NEXTAUTH_SECRET` missing or changed between deploys | Set a stable `NEXTAUTH_SECRET` (`openssl rand -base64 32`); set `NEXTAUTH_URL` to the exact deployment origin |
+| Prepared-statement errors under load (`s0 already exists`) | Pooled Neon URL missing the PgBouncer flag | Append `&pgbouncer=true` to `DATABASE_URL` (pooled only; never to `DIRECT_URL`) |
 
 Rollback: Neon PITR per [Rollback / recovery](#rollback--recovery); Vercel instant rollback to
 any prior deployment from the dashboard.

@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "env -u DATABASE_URL -u DIRECT_URL next dev -p 3000 2>&1 | tee dev.log",
-    "build": "prisma generate && next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
+    "postinstall": "prisma generate",
+    "build": "prisma generate && next build && node scripts/postbuild-standalone.mjs",
     "start": "NODE_ENV=production env -u DATABASE_URL -u DIRECT_URL bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
@@ -58,7 +59,13 @@
     "tw-animate-css": "^1.3.5",
     "typescript": "^5"
   },
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "trustedDependencies": [
-    "@embedded-postgres/linux-x64"
+    "@embedded-postgres/linux-x64",
+    "@prisma/client",
+    "prisma",
+    "sharp"
   ]
 }

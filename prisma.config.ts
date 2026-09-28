@@ -37,13 +37,38 @@ function loadEnvFile(path: string, { override = false } = {}): boolean {
 loadEnvFile(".env.local", { override: true });
 loadEnvFile(".env");
 
-if (!process.env.DATABASE_URL) {
-  // Fail loud with the variable NAME only — never a value. Hard gate, because
-  // every CLI command (even generate) resolves the schema's datasource.
+/**
+ * Which Prisma CLI command is running?
+ *
+ * Commands that TALK to a database (migrate / db / studio / seed) require
+ * DATABASE_URL. `generate` does NOT — it only reads the schema and emits the
+ * client. This distinction matters for CI/Vercel: `prisma generate` runs there
+ * (postinstall/build) and MUST succeed without database env vars configured,
+ * otherwise every first deploy fails before the founder can even reach the
+ * environment-variable settings screen.
+ */
+const CLI_COMMANDS = [
+  "init", "generate", "migrate", "db", "studio", "validate", "format", "seed",
+];
+const command = process.argv.find((a) => CLI_COMMANDS.includes(a));
+const needsDatabase = command !== undefined && /^(migrate|db|studio|seed)/.test(command);
+
+if (!process.env.DATABASE_URL && needsDatabase) {
+  // Fail loud with the variable NAME only — never a value. Hard gate ONLY for
+  // commands that actually connect (migrate/db/studio/seed).
   throw new Error(
     "[bunny-library] Missing DATABASE_URL for the Prisma CLI. " +
       "Add the Neon pooled connection string to .env.local (DIRECT_URL = direct, used by migrations). " +
       "Never paste secrets into chat or commit them."
+  );
+}
+if (!process.env.DATABASE_URL && !needsDatabase) {
+  // Non-connecting command (generate/validate/format) on an environment without
+  // database config — e.g. `prisma generate` inside the Vercel build container.
+  // Proceed, but say why in one line (names only, never values).
+  console.error(
+    `[bunny-library] DATABASE_URL not set — proceeding with \`${command ?? "prisma"}\` ` +
+      `(no database access needed). Runtime env vars must be set in the deployment dashboard.`
   );
 }
 if (!process.env.DIRECT_URL) {
