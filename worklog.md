@@ -288,3 +288,22 @@ Stage Summary:
 - DELIVERED: download/Bunny_Library_Deployment_Readiness_Report.docx (18pp, 16 tables, postcheck 9/9) + persisted generator scripts/generate-readiness-report.js + footer patcher scripts/patch-report-footers.py (reusable for future docx deliverables).
 - Key engineering insight recorded: never spread TextRun instances through config-based run builders (silent blank-text); LibreOffice table-bottom-border quirk → anchor closing rules on cells.
 - Awaiting founder: (1) rotated Neon pooled+direct strings, (2) git remote creation/push approval, (3) FD-14 approval of Phase 0–3 + translation direction (original-fiction English editions vs pipeline-only) and role option (B recommended).
+
+---
+Task ID: GH-1
+Agent: Super Z (main agent)
+Task: Pre-flight verification + first upload of Bunny Library to github.com/Yousef0hanafy/banny
+
+Work Log:
+- Inspected git state: clean tree, HEAD 8b78354 (on top of 27d06e4 checkpoint, 0515e16 Release E, e49c473 Release D); no remotes configured previously.
+- Secrets audit pre-push: .env NOT tracked (.env.example only, names-only); git grep for ghp_/gho_/github_pat_/postgres URLs matched only harmless local QA strings (failsafe-probe.ts fake probe, qa-local-pg.mjs 127.0.0.1 comment); README Neon mentions are generic docs; binary reports (docx + pdf in research/report-check) decompressed and scanned: CLEAN; tool-results/*.txt are internal skill-doc dumps (harmless).
+- Code health: typecheck 0 errors; lint had 2 errors in scripts/generate-readiness-report.js (no-require-imports, one-off CommonJS script) -> fixed with file-level eslint-disable comment, committed 8b78354; lint now 0 errors / 2 pre-existing warnings (manga-reader.tsx window.location.href).
+- Remote probe: repo exists, token valid, completely empty (ls-remote no refs).
+- Pushed full history: main -> main (new branch), upstream tracking set, then sanitized .git/config (push -u had stored token URL; replaced with clean origin remote, branch.main.remote=origin). Token never written to any tracked file; outputs redacted.
+- Verified: remote refs/heads/main = local main = 8b78354; anonymous ls-remote works -> repo is PUBLIC; fetch origin syncs origin/main.
+- Size check: 581 tracked files, 9.9 MB total, largest 0.3 MB (well under GitHub limits).
+
+Stage Summary:
+- Bunny Library fully uploaded to https://github.com/Yousef0hanafy/banny (public), history intact (Release A/B/C/D/E + hardening).
+- Remote configured as origin (token-free); future pushes need auth (credential helper or new token).
+- ADVISED FOUNDER: revoke/rotate the PAT shared in chat immediately after this session; also consider making repo private if desired before publicizing.
