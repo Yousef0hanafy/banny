@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { BookOpenText, BookMarked, Compass, Library, Search, Menu, LogOut, ShieldCheck, UserRound } from "lucide-react";
+import { BookOpenText, BookMarked, Compass, Library, Search, Menu, LogOut, ShieldCheck, UserRound, PenTool } from "lucide-react";
 import { BrandMark } from "@/components/library/brand-mark";
+import { NotificationBell } from "@/components/library/notification-bell";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -63,6 +64,8 @@ export function SiteHeader() {
             </Link>
           </Button>
 
+          <NotificationBell />
+
           {status === "loading" ? (
             <div className="size-9 animate-pulse rounded-full bg-accent" aria-hidden />
           ) : session ? (
@@ -87,6 +90,13 @@ export function SiteHeader() {
                     <UserRound className="size-4 me-2" aria-hidden /> حسابي
                   </Link>
                 </DropdownMenuItem>
+                {(role === "admin" || role === "editor") && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/studio" className="cursor-pointer">
+                      <PenTool className="size-4 me-2" aria-hidden /> استوديو المبدعين
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 {(role === "admin" || role === "editor") && (
                   <DropdownMenuItem asChild>
                     <Link href="/admin" className="cursor-pointer">

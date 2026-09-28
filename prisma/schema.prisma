@@ -1,5 +1,5 @@
-// Bunny Library — Release A+B schema (mirrors docs/ARCHITECTURE.md §3; B adds novels,
-// library, community). Runtime database: Neon PostgreSQL (founder-approved migration, DECISIONS.md D-28).
+// Bunny Library — Release A–E schema (mirrors docs/ARCHITECTURE.md §3; B adds novels,
+// library, community; E adds notifications + comment likes). Runtime database: Neon PostgreSQL (founder-approved migration, DECISIONS.md D-28).
 //   - DATABASE_URL → Neon POOLED connection string (application runtime, serverless-safe)
 //   - DIRECT_URL   → Neon DIRECT (non-pooled) connection string (Prisma migrations / CLI)
 // Prisma is the ORM and migration tool (versioned migrations in prisma/migrations);
@@ -70,6 +70,15 @@ enum AnalyticsEventType {
   @@map("analytics_event_type")
 }
 
+// Release E — notifications and comment likes
+enum NotificationType {
+  new_chapter
+  comment_like
+  system
+
+  @@map("notification_type")
+}
+
 // Release B — library shelves and community moderation states
 enum LibraryShelf {
   reading
@@ -103,6 +112,8 @@ model Profile {
   comments        Comment[]
   commentReports  CommentReport[]
   ratings         Rating[]
+  notifications   Notification[]
+  commentLikes    CommentLike[]
 }
 
 model Series {
@@ -234,10 +245,39 @@ model Comment {
   series    Series        @relation(fields: [seriesId], references: [id], onDelete: Cascade)
   chapter   Chapter?      @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   reports   CommentReport[]
+  likes     CommentLike[]
 
   @@index([seriesId, status])
   @@index([chapterId])
   @@index([profileId])
+}
+
+// Release E — one like per profile per comment
+model CommentLike {
+  id        String   @id @default(cuid())
+  commentId String
+  profileId String
+  createdAt DateTime @default(now())
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, profileId])
+  @@index([profileId])
+}
+
+// Release E — in-app notification center (bell + /notifications)
+model Notification {
+  id        String           @id @default(cuid())
+  profileId String
+  type      NotificationType
+  titleAr   String
+  bodyAr    String?
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  profile   Profile          @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([profileId, readAt, createdAt])
 }
 
 model CommentReport {

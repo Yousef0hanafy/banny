@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { FORMATS } from "@/lib/constants";
+import { scoreDocument, suggestTitle, tokenizeArabic } from "@/lib/arabic-search";
 import type { CommentStatus, Format, Role, SeriesStatus, Workflow } from "@/lib/constants";
 
 /* ------------------------------------------------------------------ */
@@ -142,15 +143,6 @@ export async function getPublishedSeries(filters: ExploreFilters): Promise<Serie
   if (filters.format && (FORMATS as readonly string[]).includes(filters.format)) where.format = filters.format;
   if (filters.status && ["ongoing", "completed", "hiatus"].includes(filters.status))
     where.status = filters.status;
-  if (filters.q && filters.q.trim()) {
-    const q = filters.q.trim();
-    where.OR = [
-      { titleAr: { contains: q } },
-      { titleOriginal: { contains: q } },
-      { synopsisAr: { contains: q } },
-      { author: { contains: q } },
-    ];
-  }
 
   const rows = await db.series.findMany({
     where,
@@ -158,6 +150,32 @@ export async function getPublishedSeries(filters: ExploreFilters): Promise<Serie
   });
 
   let cards = rows.map(toCard);
+
+  // Release E — Arabic smart search: normalized + fuzzy in-memory scoring.
+  // (DB `contains` cannot match hamza-less/teh-marbuta/typo queries; the whole
+  // catalog is tiny, so relevance is computed here instead.)
+  if (filters.q && filters.q.trim()) {
+    const qTokens = tokenizeArabic(filters.q);
+    const scored = rows.map((row, i) => ({
+      card: cards[i],
+      score: scoreDocument(qTokens, [
+        { text: row.titleAr, weight: 3 },
+        ...(row.titleOriginal ? [{ text: row.titleOriginal, weight: 2 }] : []),
+        { text: row.author, weight: 2 },
+        { text: parseJsonArray(row.genresJson).join(" "), weight: 2 },
+        { text: parseJsonArray(row.tagsJson).join(" "), weight: 1 },
+        { text: row.synopsisAr, weight: 1 },
+      ]),
+    }));
+    cards = scored
+      .filter((s) => s.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .map((s) => s.card);
+    if (filters.genre) cards = cards.filter((c) => c.genres.includes(filters.genre!));
+    // Relevance beats sort filters when the reader typed a query.
+    return cards;
+  }
+
   if (filters.genre) cards = cards.filter((c) => c.genres.includes(filters.genre!));
 
   switch (filters.sort) {
@@ -171,6 +189,16 @@ export async function getPublishedSeries(filters: ExploreFilters): Promise<Serie
       cards.sort((a, b) => b.reads - a.reads);
   }
   return cards;
+}
+
+/**
+ * "هل تقصد…؟" for the explore empty state: the closest series title to the
+ * query under the same normalization, or null when nothing is near enough.
+ */
+export async function getSearchSuggestion(q: string): Promise<string | null> {
+  if (!q.trim()) return null;
+  const rows = await db.series.findMany({ select: { titleAr: true } });
+  return suggestTitle(q, rows.map((r) => r.titleAr));
 }
 
 export async function getTrendingSeries(limit = 8): Promise<SeriesCard[]> {
@@ -533,9 +561,16 @@ export type CommentView = {
   status: CommentStatus;
   author: { id: string; nickname: string; avatarSeed: string; role: string };
   chapterNumber: number | null;
+  likeCount: number;
+  likedByMe: boolean;
 };
 
-export async function getVisibleComments(seriesId: string, chapterId: string | null, limit = 30): Promise<CommentView[]> {
+export async function getVisibleComments(
+  seriesId: string,
+  chapterId: string | null,
+  viewerProfileId?: string | null,
+  limit = 30
+): Promise<CommentView[]> {
   const rows = await db.comment.findMany({
     where: { seriesId, chapterId, status: "visible" },
     orderBy: { createdAt: "desc" },
@@ -543,6 +578,8 @@ export async function getVisibleComments(seriesId: string, chapterId: string | n
     include: {
       profile: { select: { id: true, nickname: true, avatarSeed: true, role: true } },
       chapter: { select: { number: true } },
+      _count: { select: { likes: true } },
+      likes: { select: { profileId: true } },
     },
   });
   return rows.map((c) => ({
@@ -552,6 +589,8 @@ export async function getVisibleComments(seriesId: string, chapterId: string | n
     status: c.status as CommentStatus,
     author: c.profile,
     chapterNumber: c.chapter?.number ?? null,
+    likeCount: c._count.likes,
+    likedByMe: viewerProfileId ? c.likes.some((l) => l.profileId === viewerProfileId) : false,
   }));
 }
 
@@ -674,4 +713,83 @@ export async function getCommunityCounts() {
     db.rating.aggregate({ _avg: { value: true } }),
   ]);
   return { comments, ratings, libraryItems, avgRating: avg._avg.value ?? 0 };
+}
+
+/* ------------------------------------------------------------------ */
+/* Release E — creator studio lite (read-only insights, editor+)       */
+/* ------------------------------------------------------------------ */
+
+export type StudioSeriesRow = {
+  seriesId: string;
+  slug: string;
+  titleAr: string;
+  format: Format;
+  accent: string;
+  reads: number;
+  ratingAvg: number;
+  ratingCount: number;
+  comments: number;
+  libraryAdds: number;
+  published: number;
+  review: number;
+  drafts: number;
+  scheduled: number;
+  latestPublishAt: Date | null;
+  topChapters: { number: number; reads: number }[];
+};
+
+export async function getStudioOverview(): Promise<StudioSeriesRow[]> {
+  const rows = await db.series.findMany({
+    orderBy: { reads: "desc" },
+    include: {
+      _count: { select: { libraryItems: true } },
+      chapters: { select: { id: true, number: true, workflow: true, publishedAt: true, scheduledFor: true } },
+    },
+  });
+  if (rows.length === 0) return [];
+  const [commentCounts, topEvents] = await Promise.all([
+    db.comment.groupBy({ by: ["seriesId"], where: { status: "visible" }, _count: { _all: true } }),
+    db.analyticsEvent.groupBy({
+      by: ["seriesId", "chapterId"],
+      where: { type: "read_start", chapterId: { not: null } },
+      _count: { _all: true },
+    }),
+  ]);
+  const commentsBy = new Map(commentCounts.map((c) => [c.seriesId, c._count._all]));
+  // chapterId → read_start count (for per-series top chapters)
+  const chapterReads = new Map<string, number>();
+  for (const e of topEvents) {
+    if (!e.chapterId) continue;
+    chapterReads.set(e.chapterId, (chapterReads.get(e.chapterId) ?? 0) + e._count._all);
+  }
+  return rows.map((s) => {
+    const published = s.chapters.filter((c) => c.workflow === "published");
+    const topChapters = s.chapters
+      .map((c) => ({ number: c.number, reads: chapterReads.get(c.id) ?? 0 }))
+      .filter((c) => c.reads > 0)
+      .sort((a, b) => b.reads - a.reads)
+      .slice(0, 3);
+    const latest = published.reduce<Date | null>(
+      (acc, c) => (acc === null || (c.publishedAt && acc && c.publishedAt > acc) ? c.publishedAt : acc),
+      null
+    );
+    return {
+      seriesId: s.id,
+      slug: s.slug,
+      titleAr: s.titleAr,
+      format: s.format as Format,
+      accent: s.accent,
+      reads: s.reads,
+      ratingAvg: s.ratingAvg,
+      ratingCount: s.ratingCount,
+      comments: commentsBy.get(s.id) ?? 0,
+      libraryAdds: s._count.libraryItems,
+      published: published.length,
+      review: s.chapters.filter((c) => c.workflow === "review").length,
+      drafts: s.chapters.filter((c) => c.workflow === "draft").length,
+      scheduled: s.chapters.filter((c) => c.scheduledFor && c.scheduledFor > new Date()).length,
+      latestPublishAt: latest,
+      topChapters,
+    };
+  });
 }

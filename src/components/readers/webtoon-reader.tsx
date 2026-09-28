@@ -4,8 +4,12 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { ReaderChrome, ChapterEndCard, LockedChapterPanel } from "@/components/readers/reader-chrome";
+import { CommentsSection } from "@/components/community/comments-section";
 import { saveReadingProgress } from "@/lib/actions";
 import { writeLocal } from "@/lib/progress-local";
+import type { CommentView } from "@/lib/queries";
+
+// Chapter comments are optional (Release E) — server passes them when present.
 
 type Panel = { id: string; pageIndex: number; imagePath: string; width: number; height: number };
 
@@ -16,6 +20,7 @@ export function WebtoonReader({
   chapterTitle,
   panels,
   isPremiumDemo,
+  comments = [],
   next,
   prev,
 }: {
@@ -25,6 +30,7 @@ export function WebtoonReader({
   chapterTitle: string;
   panels: Panel[];
   isPremiumDemo: boolean;
+  comments?: CommentView[];
   next: { number: number; isPremiumDemo: boolean } | null;
   prev: { number: number; isPremiumDemo: boolean } | null;
 }) {
@@ -130,6 +136,16 @@ export function WebtoonReader({
           prev={prev}
           chapterNumber={chapterNumber}
         />
+
+        {/* Chapter comments (Release E) — inline at the end of the vertical scroll */}
+        <section className="mx-auto max-w-2xl px-4 pb-14">
+          <CommentsSection
+            seriesSlug={seriesSlug}
+            seriesTitle={seriesTitle}
+            chapterNumber={chapterNumber}
+            comments={comments}
+          />
+        </section>
       </main>
     </div>
   );

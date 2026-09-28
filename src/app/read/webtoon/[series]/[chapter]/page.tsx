@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { WebtoonReader } from "@/components/readers/webtoon-reader";
-import { getChapterForReading } from "@/lib/queries";
+import { getChapterForReading, getVisibleComments, currentProfileOrNull } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +24,8 @@ export default async function WebtoonReaderPage({
   if (!Number.isInteger(num) || num < 1) notFound();
   const data = await getChapterForReading(seriesSlug, num);
   if (!data || data.series.format !== "webtoon") notFound();
+  const profile = await currentProfileOrNull();
+  const comments = await getVisibleComments(data.series.id, data.chapter.id, profile?.id ?? null);
 
   return (
     <WebtoonReader
@@ -32,6 +34,7 @@ export default async function WebtoonReaderPage({
       chapterNumber={data.chapter.number}
       chapterTitle={data.chapter.titleAr}
       isPremiumDemo={data.chapter.isPremiumDemo}
+      comments={comments}
       panels={data.chapter.pages.map((p) => ({
         id: p.id,
         pageIndex: p.pageIndex,

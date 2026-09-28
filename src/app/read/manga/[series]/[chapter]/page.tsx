@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MangaReader } from "@/components/readers/manga-reader";
-import { getChapterForReading } from "@/lib/queries";
+import { getChapterForReading, getVisibleComments, currentProfileOrNull } from "@/lib/queries";
 import { isReadingDirection } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +25,8 @@ export default async function MangaReaderPage({
   if (!Number.isInteger(num) || num < 1) notFound();
   const data = await getChapterForReading(seriesSlug, num);
   if (!data || data.series.format !== "manga") notFound();
+  const profile = await currentProfileOrNull();
+  const comments = await getVisibleComments(data.series.id, data.chapter.id, profile?.id ?? null);
 
   return (
     <MangaReader
@@ -33,6 +35,7 @@ export default async function MangaReaderPage({
       chapterNumber={data.chapter.number}
       chapterTitle={data.chapter.titleAr}
       isPremiumDemo={data.chapter.isPremiumDemo}
+      comments={comments}
       pages={data.chapter.pages.map((p) => ({
         id: p.id,
         pageIndex: p.pageIndex,

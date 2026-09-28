@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { NovelReader } from "@/components/readers/novel-reader";
-import { getChapterForReading } from "@/lib/queries";
+import { getChapterForReading, getVisibleComments, currentProfileOrNull } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +24,8 @@ export default async function NovelReaderPage({
   if (!Number.isInteger(num) || num < 1) notFound();
   const data = await getChapterForReading(seriesSlug, num);
   if (!data || data.series.format !== "novel") notFound();
+  const profile = await currentProfileOrNull();
+  const comments = await getVisibleComments(data.series.id, data.chapter.id, profile?.id ?? null);
 
   const body = data.chapter.novelBody ?? "";
   const paragraphs = body
@@ -38,6 +40,7 @@ export default async function NovelReaderPage({
       chapterNumber={data.chapter.number}
       chapterTitle={data.chapter.titleAr}
       isPremiumDemo={data.chapter.isPremiumDemo}
+      comments={comments}
       paragraphs={paragraphs}
       next={data.next ? { number: data.next.number, isPremiumDemo: data.next.isPremiumDemo } : null}
       prev={data.prev ? { number: data.prev.number, isPremiumDemo: data.prev.isPremiumDemo } : null}

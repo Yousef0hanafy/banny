@@ -1,11 +1,26 @@
 # مكتبة باني — Bunny Library
 
 > Your personal Arabic library for stories worth getting lost in.
-> **Release D — Personalization & Retention** (see `docs/RELEASE_PLAN.md` + `docs/RELEASE_D_REPORT.md`)
+> **Release E — Community, Notifications, Search & Studio** (see `docs/RELEASE_PLAN.md` + `docs/RELEASE_E_REPORT.md`)
 
 An Arabic-first, dark-mode, premium reading platform prototype for manga, webtoons, and novels — reader-first, RTL-native, fully functional, seeded with 100% original fictional content.
 
 **Demo notice (binding):** this is a product prototype. All series, chapters, covers, names, prose, and comments are original fictional content created for the demo. Nothing is licensed, official, or real. No payments. No downloads. No purchase flows.
+
+---
+
+## What's in Release E (adds to Release D)
+
+| Area | What changed |
+|---|---|
+| **Notifications center (الإشعارات)** | Header bell with unread badge + dropdown feed + full `/notifications` page (mark-read on click, mark-all). Server fan-out on chapter publish to every profile that shelved the series, and on comment likes (never self). New `Notification` table + `notification_type` enum — one versioned migration |
+| **Chapter comments + likes** | The shared CommentsSection now renders inside all three readers (webtoon: inline at chapter end; manga/novel: header-trigger dialog scoped to the chapter). Heart/like on any comment (`CommentLike` table, compound unique, optimistic toggle + rollback); liking someone's comment notifies them |
+| **Arabic smart search (البحث الذكي)** | `src/lib/arabic-search.ts` — normalization (أإآ→ا، ة→ه، ى→ي، tashkeel/tatweel stripped), weighted field scoring (title ×3 … synopsis ×1) with bounded Levenshtein typo tolerance, relevance-first ordering, and a «هل تقصد …؟» chip on empty results (looser tolerance than the search itself) |
+| **RTL share cards** | Share sheet on every series (native share / copy link / X / WhatsApp / Telegram) + branded per-series OG image (`next/og` satori, 1200×630, series accent, IBM Plex Sans Arabic WOFFs committed in `public/fonts/`). Satori has no bidi → Arabic strings word-reversed + `row-reverse` rows (documented in code) |
+| **Creator studio lite (استوديو المبدعين)** | `/studio` for editor+: read-only insights — totals strip, scheduled-chapters banner, per-series cards (reads bar, rating, comments, saves, chapter pipeline published/review/drafts/scheduled, top chapters by read_start events), deep links into admin. Zero DDL |
+| **Seed** | +4 demo notifications for the reader (unread/read mix) + 8 comment likes — both empty-table-guarded, seed stays idempotent ×2 |
+
+**Release E status**: browser-verified end-to-end on the local QA Postgres — see `docs/RELEASE_E_REPORT.md`.
 
 ---
 

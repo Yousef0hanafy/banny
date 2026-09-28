@@ -364,6 +364,92 @@ async function seedCommunity() {
   });
 }
 
+/**
+ * Release E — comment likes + demo notifications. Both tables have no
+ * natural key, so both blocks are guarded by an empty-table check and
+ * stay idempotent across repeated seed runs.
+ */
+async function seedReleaseE() {
+  /* Comment likes — only into an empty table, never self-likes */
+  if ((await db.commentLike.count()) === 0) {
+    const profiles = await db.profile.findMany({ select: { id: true, email: true } });
+    const byEmail = new Map(profiles.map((p) => [p.email, p.id]));
+    const comments = await db.comment.findMany({
+      orderBy: { createdAt: "asc" },
+      select: { id: true, profileId: true },
+    });
+    const likerEmails = ["admin@bunny.demo", "editor@bunny.demo", "reader@bunny.demo"];
+    let created = 0;
+    outer: for (const c of comments) {
+      for (const email of likerEmails) {
+        const likerId = byEmail.get(email);
+        if (!likerId || likerId === c.profileId) continue;
+        await db.commentLike.create({ data: { commentId: c.id, profileId: likerId } });
+        created++;
+        if (created >= 8) break outer;
+      }
+    }
+  }
+
+  /* Demo notifications for the reader — only into an empty table */
+  if ((await db.notification.count()) === 0) {
+    const reader = await db.profile.findUnique({ where: { email: "reader@bunny.demo" } });
+    if (reader) {
+      const now = Date.now();
+      const latest = await db.chapter.findMany({
+        where: { workflow: "published", publishedAt: { not: null } },
+        orderBy: { publishedAt: "desc" },
+        take: 2,
+        include: { series: { select: { slug: true, titleAr: true, format: true } } },
+      });
+      let i = 0;
+      for (const ch of latest) {
+        const when = new Date(now - (i + 1) * 86400000); // 1–2 days back
+        await db.notification.create({
+          data: {
+            profileId: reader.id,
+            type: "new_chapter",
+            titleAr: `فصل جديد في «${ch.series.titleAr}»`,
+            bodyAr: `الفصل ${ch.number} — ${ch.titleAr} متاح الآن.`,
+            href: `/read/${ch.series.format}/${ch.series.slug}/${ch.number}`,
+            readAt: i === 0 ? when : null, // first read, second unread
+            createdAt: when,
+          },
+        });
+        i++;
+      }
+      const firstComment = await db.comment.findFirst({
+        where: { profileId: reader.id },
+        orderBy: { createdAt: "asc" },
+        select: { id: true },
+      });
+      if (firstComment) {
+        await db.notification.create({
+          data: {
+            profileId: reader.id,
+            type: "comment_like",
+            titleAr: "أُعجب مدير المكتبة بتعليقك",
+            bodyAr: "على صفحة العمل — استمر بالمشاركة!",
+            href: "/explore",
+            createdAt: new Date(now - 3 * 3600000),
+          },
+        });
+      }
+      await db.notification.create({
+        data: {
+          profileId: reader.id,
+          type: "system",
+          titleAr: "أهلًا بك في مكتبة باني",
+          bodyAr: "أضِف أعمالك المفضلة إلى المكتبة لتصلك تحديثاتها أولًا بأول.",
+          href: "/explore",
+          readAt: new Date(now - 5 * 86400000),
+          createdAt: new Date(now - 5 * 86400000),
+        },
+      });
+    }
+  }
+}
+
 async function main() {
   await seedProfiles();
   await seedSeries();
@@ -371,6 +457,7 @@ async function main() {
   await seedProgress();
   await seedCommunity();
   await seedAnalytics();
+  await seedReleaseE();
   const counts = {
     profiles: await db.profile.count(),
     series: await db.series.count(),
@@ -383,6 +470,8 @@ async function main() {
     comments: await db.comment.count(),
     ratings: await db.rating.count(),
     reports: await db.commentReport.count(),
+    notifications: await db.notification.count(),
+    commentLikes: await db.commentLike.count(),
   };
   console.log("Seed complete:", counts);
 }

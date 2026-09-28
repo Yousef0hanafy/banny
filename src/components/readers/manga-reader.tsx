@@ -7,8 +7,10 @@ import { useSession } from "next-auth/react";
 import { ChevronLeft, ChevronRight, ArrowLeftRight, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ReaderChrome, ChapterEndCard, LockedChapterPanel } from "@/components/readers/reader-chrome";
+import { ChapterCommentsDialog } from "@/components/community/chapter-comments-dialog";
 import { saveReadingProgress } from "@/lib/actions";
 import { writeLocal } from "@/lib/progress-local";
+import type { CommentView } from "@/lib/queries";
 
 type Page = { id: string; pageIndex: number; imagePath: string; width: number; height: number };
 
@@ -20,6 +22,7 @@ export function MangaReader({
   pages,
   defaultDirection,
   isPremiumDemo,
+  comments = [],
   next,
   prev,
 }: {
@@ -30,6 +33,7 @@ export function MangaReader({
   pages: Page[];
   defaultDirection: "rtl" | "ltr";
   isPremiumDemo: boolean;
+  comments?: CommentView[];
   next: { number: number; isPremiumDemo: boolean } | null;
   prev: { number: number; isPremiumDemo: boolean } | null;
 }) {
@@ -115,6 +119,14 @@ export function MangaReader({
         percent={percent}
         immersive={immersive}
         onToggleImmersive={() => setImmersive((v) => !v)}
+        headerExtra={
+          <ChapterCommentsDialog
+            seriesSlug={seriesSlug}
+            seriesTitle={seriesTitle}
+            chapterNumber={chapterNumber}
+            comments={comments}
+          />
+        }
       />
 
       <main className="flex min-h-screen flex-col items-center justify-center px-2 pb-28 pt-16 sm:px-6" aria-label="صفحات الفصل">

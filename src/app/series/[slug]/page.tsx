@@ -7,6 +7,7 @@ import { SiteHeader, SiteFooter, BottomNav } from "@/components/library/chrome";
 import { Rail, SeriesCardItem, SeriesMetaBadges } from "@/components/library/series-card";
 import { SeriesCTA } from "@/components/library/series-cta";
 import { LibraryButton } from "@/components/library/library-button";
+import { ShareButton } from "@/components/library/share-button";
 import { RatingWidget } from "@/components/community/rating-widget";
 import { CommentsSection } from "@/components/community/comments-section";
 import { CalendarClock } from "lucide-react";
@@ -31,7 +32,16 @@ export async function generateMetadata({
   const { slug } = await params;
   const s = await getSeriesBySlug(slug);
   if (!s) return { title: "عمل غير موجود" };
-  return { title: s.titleAr, description: s.synopsisAr.slice(0, 120) };
+  return {
+    title: s.titleAr,
+    description: s.synopsisAr.slice(0, 120),
+    openGraph: {
+      title: s.titleAr,
+      description: s.synopsisAr.slice(0, 120),
+      type: "article",
+    },
+    twitter: { card: "summary_large_image" },
+  };
 }
 
 function timeAgoAr(date: Date) {
@@ -170,6 +180,7 @@ export default async function SeriesDetailPage({
                   >
                     <LibraryButton slug={s.slug} initialShelf={(shelfRow?.shelf as "reading" | "plan" | "finished") ?? null} />
                   </SeriesCTA>
+                  <ShareButton slug={s.slug} titleAr={s.titleAr} />
                 </div>
               </div>
             </div>

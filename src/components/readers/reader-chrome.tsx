@@ -53,6 +53,7 @@ export function ReaderChrome({
   percent,
   immersive,
   onToggleImmersive,
+  headerExtra,
   children,
 }: {
   seriesSlug: string;
@@ -63,6 +64,8 @@ export function ReaderChrome({
   percent: number;
   immersive: boolean;
   onToggleImmersive: () => void;
+  /** Optional reader controls rendered in the header row (comments, etc.). */
+  headerExtra?: React.ReactNode;
   children?: React.ReactNode;
 }) {
   return (
@@ -84,6 +87,7 @@ export function ReaderChrome({
               الفصل {chapterNumber} · {chapterTitle}
             </p>
           </div>
+          {headerExtra}
           <Button
             variant="ghost"
             size="icon"

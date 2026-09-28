@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { SearchX } from "lucide-react";
 import { SiteHeader, SiteFooter, BottomNav } from "@/components/library/chrome";
 import { SeriesCardItem } from "@/components/library/series-card";
 import { ExploreFilterBar } from "@/components/library/explore-filters";
-import { getPublishedSeries, type ExploreFilters } from "@/lib/queries";
+import { getPublishedSeries, getSearchSuggestion, type ExploreFilters } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export const metadata: Metadata = {
   title: "استكشف المكتبة",
 };
 
-function EmptyState({ filtered }: { filtered: boolean }) {
+function EmptyState({ filtered, suggestion }: { filtered: boolean; suggestion?: string | null }) {
   return (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/70 bg-card/40 px-6 py-20 text-center">
       <span className="grid size-14 place-items-center rounded-2xl bg-accent text-muted-foreground">
@@ -26,6 +27,14 @@ function EmptyState({ filtered }: { filtered: boolean }) {
           ? "جرّب كلمة أقصر، أو أزل بعض المرشحات — ربما ينتظرك العمل في رفٍّ آخر."
           : "لم تُضف أعمال بعد. عد لاحقًا، الرفوف تُرتَّب الآن."}
       </p>
+      {filtered && suggestion && (
+        <Link
+          href={`/explore?q=${encodeURIComponent(suggestion)}`}
+          className="mt-4 rounded-full border border-primary/40 bg-primary/10 px-4 py-2 text-sm text-primary transition hover:bg-primary/15"
+        >
+          هل تقصد «{suggestion}»؟
+        </Link>
+      )}
     </div>
   );
 }
@@ -46,6 +55,7 @@ export default async function ExplorePage({
   };
   const series = await getPublishedSeries(filters);
   const hasFilters = Boolean(filters.q || filters.format || filters.genre || filters.status);
+  const suggestion = filters.q && series.length === 0 ? await getSearchSuggestion(filters.q) : null;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -64,7 +74,7 @@ export default async function ExplorePage({
           </Suspense>
 
           {series.length === 0 ? (
-            <EmptyState filtered={hasFilters} />
+            <EmptyState filtered={hasFilters} suggestion={suggestion} />
           ) : (
             <div className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
               {series.map((s) => (

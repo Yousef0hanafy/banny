@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { currentProfileOrNull } from "@/lib/queries";
+import { notifyNewChapter, notifyCommentLike } from "@/lib/notifications";
 import { revalidatePath } from "next/cache";
 import { isWorkflow, isRole, type Workflow, type Role } from "@/lib/constants";
 
@@ -183,6 +184,14 @@ export async function updateChapterMeta(input: unknown): Promise<ActionResult> {
         metaJson: JSON.stringify({ number: chapter.number }),
       },
     });
+    await notifyNewChapter({
+      seriesId: chapter.seriesId,
+      seriesSlug: chapter.series.slug,
+      seriesTitle: chapter.series.titleAr,
+      seriesFormat: chapter.series.format,
+      chapterNumber: chapter.number,
+      chapterTitle: chapter.titleAr,
+    });
   }
 
   revalidatePath("/admin/chapters");
@@ -237,6 +246,17 @@ export async function createChapter(input: unknown): Promise<ActionResult & { id
       novelBody: d.novelBody ?? null,
     },
   });
+
+  if (d.workflow === "published") {
+    await notifyNewChapter({
+      seriesId: series.id,
+      seriesSlug: series.slug,
+      seriesTitle: series.titleAr,
+      seriesFormat: series.format,
+      chapterNumber: d.number,
+      chapterTitle: d.titleAr,
+    });
+  }
 
   // Novel chapters carry prose instead of generated pages.
   if (series.format === "novel") {
@@ -298,10 +318,21 @@ export async function setWorkflowBulk(ids: string[], workflow: Workflow): Promis
   for (const id of ids) {
     const chapter = await db.chapter.findUnique({ where: { id }, include: { series: true } });
     if (!chapter) continue;
+    const wasPublished = chapter.workflow === "published";
     await db.chapter.update({
       where: { id },
       data: { workflow, publishedAt: workflow === "published" ? (chapter.publishedAt ?? new Date()) : null },
     });
+    if (!wasPublished && workflow === "published") {
+      await notifyNewChapter({
+        seriesId: chapter.seriesId,
+        seriesSlug: chapter.series.slug,
+        seriesTitle: chapter.series.titleAr,
+        seriesFormat: chapter.series.format,
+        chapterNumber: chapter.number,
+        chapterTitle: chapter.titleAr,
+      });
+    }
   }
   revalidatePath("/admin/chapters");
   revalidatePath("/");
@@ -415,6 +446,55 @@ export async function reportComment(input: unknown): Promise<ActionResult> {
   }
   revalidatePath("/admin/moderation");
   return { ok: true };
+}
+
+const likeSchema = z.object({
+  commentId: z.string().min(1),
+});
+
+/**
+ * Toggle the current profile's like on a comment (Release E). One like per
+ * profile per comment (compound unique). Liking someone else's comment sends
+ * them a notification; unliking and self-likes stay silent.
+ */
+export async function toggleCommentLike(
+  input: unknown
+): Promise<ActionResult & { liked?: boolean; likeCount?: number }> {
+  const profile = await currentProfileOrNull();
+  if (!profile) return { ok: false, error: "unauthenticated" };
+  const parsed = likeSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "invalid" };
+  const comment = await db.comment.findUnique({
+    where: { id: parsed.data.commentId },
+    select: {
+      id: true,
+      status: true,
+      profileId: true,
+      series: { select: { slug: true, titleAr: true } },
+      _count: { select: { likes: true } },
+    },
+  });
+  if (!comment || comment.status !== "visible") return { ok: false, error: "not_found" };
+
+  const key = { commentId_profileId: { commentId: comment.id, profileId: profile.id } };
+  const existing = await db.commentLike.findUnique({ where: key });
+  let liked: boolean;
+  if (existing) {
+    await db.commentLike.delete({ where: key });
+    liked = false;
+  } else {
+    await db.commentLike.create({ data: { commentId: comment.id, profileId: profile.id } });
+    liked = true;
+    if (comment.profileId !== profile.id) {
+      await notifyCommentLike({
+        authorProfileId: comment.profileId,
+        likerNickname: profile.nickname,
+        seriesSlug: comment.series.slug,
+        seriesTitle: comment.series.titleAr,
+      });
+    }
+  }
+  return { ok: true, liked, likeCount: comment._count.likes + (liked ? 1 : -1) };
 }
 
 const ratingSchema = z.object({
@@ -549,6 +629,34 @@ export async function deleteCollection(id: string): Promise<ActionResult> {
   await db.editorialCollection.delete({ where: { id } });
   revalidatePath("/admin/collections");
   revalidatePath("/");
+  return { ok: true };
+}
+
+/* --- notifications (Release E) --- */
+
+export async function markNotificationRead(input: unknown): Promise<ActionResult> {
+  const profile = await currentProfileOrNull();
+  if (!profile) return { ok: false, error: "unauthenticated" };
+  const parsed = z.object({ id: z.string().min(1) }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: "invalid" };
+  try {
+    await db.notification.update({
+      where: { id: parsed.data.id },
+      data: { readAt: new Date() },
+    });
+  } catch {
+    return { ok: false, error: "not_found" }; // not owned / not found — no info leak
+  }
+  return { ok: true };
+}
+
+export async function markAllNotificationsRead(): Promise<ActionResult> {
+  const profile = await currentProfileOrNull();
+  if (!profile) return { ok: false, error: "unauthenticated" };
+  await db.notification.updateMany({
+    where: { profileId: profile.id, readAt: null },
+    data: { readAt: new Date() },
+  });
   return { ok: true };
 }
 

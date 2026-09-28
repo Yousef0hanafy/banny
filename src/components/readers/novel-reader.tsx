@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { ReaderChrome, ChapterEndCard, LockedChapterPanel } from "@/components/readers/reader-chrome";
+import { ChapterCommentsDialog } from "@/components/community/chapter-comments-dialog";
 import { saveReadingProgress } from "@/lib/actions";
 import { writeLocal } from "@/lib/progress-local";
+import type { CommentView } from "@/lib/queries";
 
 type NovelTheme = "dark" | "sepia" | "light";
 
@@ -43,6 +45,7 @@ export function NovelReader({
   chapterTitle,
   paragraphs,
   isPremiumDemo,
+  comments = [],
   next,
   prev,
 }: {
@@ -52,6 +55,7 @@ export function NovelReader({
   chapterTitle: string;
   paragraphs: string[];
   isPremiumDemo: boolean;
+  comments?: CommentView[];
   next: { number: number; isPremiumDemo: boolean } | null;
   prev: { number: number; isPremiumDemo: boolean } | null;
 }) {
@@ -154,6 +158,14 @@ export function NovelReader({
         percent={percent}
         immersive={immersive}
         onToggleImmersive={() => setImmersive((v) => !v)}
+        headerExtra={
+          <ChapterCommentsDialog
+            seriesSlug={seriesSlug}
+            seriesTitle={seriesTitle}
+            chapterNumber={chapterNumber}
+            comments={comments}
+          />
+        }
       >
         {/* novel-specific controls */}
         <div className="flex items-center gap-1.5">

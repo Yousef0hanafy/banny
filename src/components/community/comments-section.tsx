@@ -4,11 +4,11 @@ import { useSyncExternalStore, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { Flag, SendHorizonal, ShieldAlert } from "lucide-react";
+import { Flag, SendHorizonal, ShieldAlert, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { postComment, reportComment } from "@/lib/actions";
+import { postComment, reportComment, toggleCommentLike } from "@/lib/actions";
 import type { CommentView } from "@/lib/queries";
 
 /**
@@ -57,6 +57,10 @@ export function CommentsSection({
   const [body, setBody] = useState("");
   const [error, setError] = useState("");
   const [reported, setReported] = useState<Set<string>>(new Set());
+  // Optimistic like state (Release E): local mirror of {liked, count} per comment.
+  const [likes, setLikes] = useState<Map<string, { liked: boolean; count: number }>>(
+    () => new Map(comments.map((c) => [c.id, { liked: c.likedByMe, count: c.likeCount }]))
+  );
   // Hydration-safe time anchor (see timeAgoAr docstring above).
   const now = useSyncExternalStore(subscribeMinute, getClientNow, getServerNow);
 
@@ -88,6 +92,24 @@ export function CommentsSection({
         setReported((s) => new Set(s).add(commentId));
         router.refresh();
       }
+    });
+  };
+
+  const toggleLike = (commentId: string) => {
+    if (status !== "authenticated") {
+      router.push("/login");
+      return;
+    }
+    const prev = likes.get(commentId) ?? { liked: false, count: 0 };
+    const next = { liked: !prev.liked, count: prev.count + (prev.liked ? -1 : 1) };
+    setLikes((m) => new Map(m).set(commentId, next)); // optimistic
+    startTransition(async () => {
+      const res = await toggleCommentLike({ commentId });
+      if (!res.ok || typeof res.liked !== "boolean" || typeof res.likeCount !== "number") {
+        setLikes((m) => new Map(m).set(commentId, prev)); // roll back on failure
+        return;
+      }
+      setLikes((m) => new Map(m).set(commentId, { liked: res.liked!, count: res.likeCount! }));
     });
   };
 
@@ -155,6 +177,27 @@ export function CommentsSection({
                   )}
                 </div>
                 <p className="mt-1.5 whitespace-pre-wrap text-sm leading-7 text-foreground/90">{c.body}</p>
+                {(() => {
+                  const likeState = likes.get(c.id) ?? { liked: c.likedByMe, count: c.likeCount };
+                  return (
+                    <div className="mt-2.5 flex items-center gap-1">
+                      <button
+                        onClick={() => toggleLike(c.id)}
+                        aria-pressed={likeState.liked}
+                        aria-label={likeState.liked ? "إلغاء الإعجاب بالتعليق" : "الإعجاب بالتعليق"}
+                        title={likeState.liked ? "إلغاء الإعجاب" : "أعجبني"}
+                        className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+                          likeState.liked
+                            ? "border-rose-500/40 bg-rose-500/10 text-rose-400"
+                            : "border-border/70 text-muted-foreground hover:border-rose-500/30 hover:text-rose-400"
+                        }`}
+                      >
+                        <Heart className={`size-3.5 ${likeState.liked ? "fill-rose-400" : ""}`} aria-hidden />
+                        {likeState.count > 0 && <span>{likeState.count}</span>}
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
               <button
                 onClick={() => report(c.id)}
