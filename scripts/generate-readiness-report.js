@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- one-off CommonJS report generator (run with node, not bundled) */
 // Bunny Library — Deployment Readiness Report & Continuation Plan (docx generator)
 // Skill compliance: docx skill / routes/create.md + references/design-system.md (R1 recipe, DM-1 palette)
 // + references/common-rules.md (Profile A formal, English) + scenes/report.md + references/toc.md
