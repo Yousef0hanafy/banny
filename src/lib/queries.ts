@@ -302,7 +302,7 @@ export async function getChapterForReading(seriesSlug: string, chapterNumber: nu
   });
   if (!chapter) return null;
   const siblings = await db.chapter.findMany({
-    where: liveChapterWhere(),
+    where: { seriesId: series.id, ...liveChapterWhere() },
     orderBy: { number: "asc" },
     select: { number: true, titleAr: true, isPremiumDemo: true },
   });
@@ -314,6 +314,15 @@ export async function getChapterForReading(seriesSlug: string, chapterNumber: nu
     next: idx >= 0 && idx < siblings.length - 1 ? siblings[idx + 1] : null,
     chapterList: siblings,
   };
+}
+
+export async function getReaderProgress(profileId: string | null, chapterId: string) {
+  if (!profileId) return null;
+  const row = await db.readingProgress.findUnique({
+    where: { profileId_chapterId: { profileId, chapterId } },
+    select: { pageIndex: true, percent: true, updatedAt: true },
+  });
+  return row ? { ...row, updatedAt: row.updatedAt.getTime() } : null;
 }
 
 export async function getProgressMap(profileId: string | null, seriesId: string) {

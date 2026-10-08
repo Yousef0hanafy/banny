@@ -16,6 +16,7 @@ import {
 } from "@/lib/queries";
 import { getForYouSeries } from "@/lib/foryou";
 import { FORMAT_LABELS } from "@/lib/constants";
+import { readerHref } from "@/lib/reader-route";
 
 export const dynamic = "force-dynamic";
 
@@ -79,7 +80,7 @@ export default async function HomePage() {
             {latest.map((u) => (
               <Link
                 key={u.id}
-                href={`/read/${FORMAT_LABELS[u.series.format] === "مانجا" ? "manga" : "webtoon"}/${u.series.slug}/${u.number}`}
+                href={readerHref(u.series.format, u.series.slug, u.number)}
                 className="group block w-[240px] shrink-0"
                 role="listitem"
               >

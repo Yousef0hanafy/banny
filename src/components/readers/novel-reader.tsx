@@ -5,7 +5,8 @@ import { useSession } from "next-auth/react";
 import { ReaderChrome, ChapterEndCard, LockedChapterPanel } from "@/components/readers/reader-chrome";
 import { ChapterCommentsDialog } from "@/components/community/chapter-comments-dialog";
 import { saveReadingProgress } from "@/lib/actions";
-import { writeLocal } from "@/lib/progress-local";
+import { readChapterLocal, writeLocal } from "@/lib/progress-local";
+import { restoreReaderScroll, selectReaderProgress, type ReaderProgress } from "@/lib/reader-progress";
 import type { CommentView } from "@/lib/queries";
 
 type NovelTheme = "dark" | "sepia" | "light";
@@ -46,6 +47,7 @@ export function NovelReader({
   paragraphs,
   isPremiumDemo,
   comments = [],
+  initialProgress = null,
   next,
   prev,
 }: {
@@ -56,6 +58,7 @@ export function NovelReader({
   paragraphs: string[];
   isPremiumDemo: boolean;
   comments?: CommentView[];
+  initialProgress?: ReaderProgress | null;
   next: { number: number; isPremiumDemo: boolean } | null;
   prev: { number: number; isPremiumDemo: boolean } | null;
 }) {
@@ -63,17 +66,23 @@ export function NovelReader({
   const [immersive, setImmersive] = useState(false);
   const [fontSize, setFontSize] = useState(18);
   const [theme, setTheme] = useState<NovelTheme>("dark");
+  const [preferencesReady, setPreferencesReady] = useState(false);
   const [percent, setPercent] = useState(0);
   const lastSaved = useRef(0);
-  const savedStart = useRef(false);
+  const [restored, setRestored] = useState(false);
+  const actualPercent = useRef(0);
+  const mirrorInitialized = useRef(false);
 
   useEffect(() => {
     // restore per-device prefs after mount (async to avoid cascading render lint)
     const raf = requestAnimationFrame(() => {
-      const fs = Number(window.localStorage.getItem(FONT_KEY));
-      if (fs >= 15 && fs <= 30) setFontSize(fs);
-      const t = window.localStorage.getItem(THEME_KEY);
-      if (t === "dark" || t === "sepia" || t === "light") setTheme(t);
+      try {
+        const fs = Number(window.localStorage.getItem(FONT_KEY));
+        if (fs >= 15 && fs <= 30) setFontSize(fs);
+        const t = window.localStorage.getItem(THEME_KEY);
+        if (t === "dark" || t === "sepia" || t === "light") setTheme(t);
+      } catch {}
+      setPreferencesReady(true);
     });
     return () => cancelAnimationFrame(raf);
   }, []);
@@ -81,19 +90,22 @@ export function NovelReader({
   const applyFont = (v: number) => {
     const clamped = Math.min(30, Math.max(15, v));
     setFontSize(clamped);
-    window.localStorage.setItem(FONT_KEY, String(clamped));
+    try { window.localStorage.setItem(FONT_KEY, String(clamped)); } catch {}
   };
   const applyTheme = (t: NovelTheme) => {
     setTheme(t);
-    window.localStorage.setItem(THEME_KEY, t);
+    try { window.localStorage.setItem(THEME_KEY, t); } catch {}
   };
 
   useEffect(() => {
+    if (!restored || isPremiumDemo || !paragraphs.length) return;
     const onScroll = () => {
       const el = document.documentElement;
       const max = el.scrollHeight - el.clientHeight;
       const p = max > 0 ? Math.min(100, Math.max(0, (el.scrollTop / max) * 100)) : 100;
       setPercent(p);
+      actualPercent.current = p;
+      if (status === "loading" || !mirrorInitialized.current) return;
       const now = Date.now();
       if (now - lastSaved.current > 2500 && p > 0) {
         lastSaved.current = now;
@@ -122,24 +134,29 @@ export function NovelReader({
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [chapterNumber, paragraphs.length, seriesSlug, seriesTitle, status, chapterTitle]);
+  }, [chapterNumber, paragraphs.length, seriesSlug, seriesTitle, status, chapterTitle, isPremiumDemo, restored]);
 
   useEffect(() => {
-    if (savedStart.current) return;
-    savedStart.current = true;
-    writeLocal({
-      seriesSlug,
-      seriesTitle,
-      chapterNumber,
-      chapterTitle,
-      pageIndex: 0,
-      percent: 1,
-      total: paragraphs.length,
-      format: "novel",
-      coverPath: "",
-      accent: "",
+    if (restored || isPremiumDemo || !paragraphs.length || !preferencesReady) return;
+    const progress = selectReaderProgress(readChapterLocal(seriesSlug, chapterNumber, "novel"), initialProgress);
+    return restoreReaderScroll(progress?.percent ?? 0, actual => {
+      setPercent(actual);
+      actualPercent.current = actual;
+      setRestored(true);
     });
-  }, [chapterNumber, paragraphs.length, seriesSlug, seriesTitle, chapterTitle]);
+  }, [chapterNumber, initialProgress, isPremiumDemo, paragraphs.length, seriesSlug, restored, preferencesReady]);
+
+  useEffect(() => {
+    if (!restored || status === "loading" || mirrorInitialized.current || isPremiumDemo || !paragraphs.length) return;
+    // Use the current position, including movement during session loading.
+    mirrorInitialized.current = true;
+    lastSaved.current = Date.now();
+    writeLocal({
+      seriesSlug, seriesTitle, chapterNumber, chapterTitle,
+      pageIndex: 0, percent: actualPercent.current || 1, total: paragraphs.length,
+      format: "novel", coverPath: "", accent: "",
+    });
+  }, [chapterNumber, chapterTitle, isPremiumDemo, paragraphs.length, restored, seriesSlug, seriesTitle, status]);
 
   if (isPremiumDemo) {
     return <LockedChapterPanel seriesSlug={seriesSlug} seriesTitle={seriesTitle} format="novel" />;

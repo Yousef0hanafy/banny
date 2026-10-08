@@ -7,6 +7,7 @@
     "build": "prisma generate && next build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/",
     "start": "NODE_ENV=production env -u DATABASE_URL -u DIRECT_URL bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
+    "test:reader": "node scripts/qa-reader.mjs",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:status": "node scripts/with-env.mjs prisma migrate status",
@@ -46,6 +47,7 @@
     "zod": "^4.0.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "@tailwindcss/postcss": "^4",
     "@types/react": "^19",
     "@types/react-dom": "^19",

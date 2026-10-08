@@ -6,7 +6,8 @@ import { useSession } from "next-auth/react";
 import { ReaderChrome, ChapterEndCard, LockedChapterPanel } from "@/components/readers/reader-chrome";
 import { CommentsSection } from "@/components/community/comments-section";
 import { saveReadingProgress } from "@/lib/actions";
-import { writeLocal } from "@/lib/progress-local";
+import { readChapterLocal, writeLocal } from "@/lib/progress-local";
+import { restoreReaderScroll, selectReaderProgress, type ReaderProgress } from "@/lib/reader-progress";
 import type { CommentView } from "@/lib/queries";
 
 // Chapter comments are optional (Release E) — server passes them when present.
@@ -21,6 +22,7 @@ export function WebtoonReader({
   panels,
   isPremiumDemo,
   comments = [],
+  initialProgress = null,
   next,
   prev,
 }: {
@@ -31,6 +33,7 @@ export function WebtoonReader({
   panels: Panel[];
   isPremiumDemo: boolean;
   comments?: CommentView[];
+  initialProgress?: ReaderProgress | null;
   next: { number: number; isPremiumDemo: boolean } | null;
   prev: { number: number; isPremiumDemo: boolean } | null;
 }) {
@@ -39,14 +42,19 @@ export function WebtoonReader({
   const [percent, setPercent] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastSaved = useRef(0);
-  const savedStart = useRef(false);
+  const [restored, setRestored] = useState(false);
+  const actualPercent = useRef(0);
+  const mirrorInitialized = useRef(false);
 
   useEffect(() => {
+    if (!restored || isPremiumDemo || !panels.length) return;
     const onScroll = () => {
       const el = document.documentElement;
       const max = el.scrollHeight - el.clientHeight;
       const p = max > 0 ? Math.min(100, Math.max(0, (el.scrollTop / max) * 100)) : 100;
       setPercent(p);
+      actualPercent.current = p;
+      if (status === "loading" || !mirrorInitialized.current) return;
 
       const now = Date.now();
       if (now - lastSaved.current > 2500 && p - 0 > 0) {
@@ -76,25 +84,30 @@ export function WebtoonReader({
     };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [chapterNumber, panels.length, seriesSlug, seriesTitle, status]);
+  }, [chapterNumber, panels.length, seriesSlug, seriesTitle, status, chapterTitle, isPremiumDemo, restored]);
 
-  // mark read_start once (mirrors the seeded pattern; guests keep it locally only)
   useEffect(() => {
-    if (savedStart.current) return;
-    savedStart.current = true;
-    writeLocal({
-      seriesSlug,
-      seriesTitle,
-      chapterNumber,
-      chapterTitle,
-      pageIndex: 0,
-      percent: 1,
-      total: panels.length,
-      format: "webtoon",
-      coverPath: "",
-      accent: "",
+    if (restored || isPremiumDemo || !panels.length) return;
+    const progress = selectReaderProgress(readChapterLocal(seriesSlug, chapterNumber, "webtoon"), initialProgress);
+    return restoreReaderScroll(progress?.percent ?? 0, actual => {
+      setPercent(actual);
+      actualPercent.current = actual;
+      setRestored(true);
     });
-  }, [chapterNumber, panels.length, seriesSlug, seriesTitle, chapterTitle]);
+  }, [chapterNumber, initialProgress, isPremiumDemo, panels.length, seriesSlug, restored]);
+
+  useEffect(() => {
+    if (!restored || status === "loading" || mirrorInitialized.current || isPremiumDemo || !panels.length) return;
+    // The reader may have moved while the session was loading. Mirror that
+    // position once, without restoring again when authentication resolves.
+    mirrorInitialized.current = true;
+    lastSaved.current = Date.now();
+    writeLocal({
+      seriesSlug, seriesTitle, chapterNumber, chapterTitle,
+      pageIndex: 0, percent: actualPercent.current || 1, total: panels.length,
+      format: "webtoon", coverPath: "", accent: "",
+    });
+  }, [chapterNumber, chapterTitle, isPremiumDemo, panels.length, restored, seriesSlug, seriesTitle, status]);
 
   if (isPremiumDemo) {
     return <LockedChapterPanel seriesSlug={seriesSlug} seriesTitle={seriesTitle} format="webtoon" />;

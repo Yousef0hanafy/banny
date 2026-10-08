@@ -7,6 +7,22 @@ An Arabic-first, dark-mode, premium reading platform prototype for manga, webtoo
 
 **Demo notice (binding):** this is a product prototype. All series, chapters, covers, names, prose, and comments are original fictional content created for the demo. Nothing is licensed, official, or real. No payments. No downloads. No purchase flows.
 
+## Reader Foundation regression QA
+
+```sh
+bun install --frozen-lockfile
+node node_modules/@playwright/test/cli.js install chromium
+bun run test:reader
+```
+
+This Windows/macOS/Linux runner creates a fresh UTF-8 embedded PostgreSQL cluster and a uniquely named database, both bound to loopback. It deploys the existing migrations, seeds the original demo and small reader fixtures, builds Next directly, copies static/public assets with Node APIs into the generated standalone app, and starts its `server.js` on 127.0.0.1. It checks the reader routes and runs Chromium at desktop and 390px mobile sizes. The production build avoids on-demand dev recompilation during browser assertions. It supplies generated database/auth settings only to its children, without the `with-env` wrapper or reading/writing `.env.local`. It never attaches to an existing database or server. The browser fixtures refuse to run without the runner's isolated database identity.
+
+The suite covers series-scoped live navigation, update links for all three formats, matching chapter progress, malformed storage, shortened manga chapters, authenticated server resume and timestamp precedence, scroll resume after novel preferences, reloads, subsequent scrolling, real next-chapter links, and locked/empty content. Stalled-session tests verify restoration before session resolution, no writes while loading, preserved user movement and resumed persistence afterward. Each chapter mounts its own reader state. The existing local mirror remains one latest reading record per series.
+
+Each invocation prints an external temporary artifact directory containing `runner.log`, stage logs, `results.json`, failure traces/screenshots, and successful desktop/mobile reader screenshots. `cleanup.json` records the generated database name, zero remaining owned children, closed database/app ports and removed database data. Logs remain available after both success and failure. Shutdown is bounded, uses the exact owned cluster directory and child PIDs, and verifies loopback ports are closed before removing data. Any setup, test or cleanup failure returns nonzero.
+
+To narrow a regression run, pass Playwright arguments, for example `bun run test:reader --project=desktop --grep "manga: guest"`. For the complete package gates, run the full reader command, `bun run lint`, `node node_modules/typescript/bin/tsc --noEmit --incremental false`, `node node_modules/prisma/build/index.js generate`, and `node node_modules/next/dist/bin/next build`. Generate/build can use harmless loopback placeholders when database variables are required. Next's direct build command excludes the historical shell copy stage in the package build script.
+
 ---
 
 ## What's in Release E (adds to Release D)
