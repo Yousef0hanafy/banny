@@ -78,7 +78,7 @@ export function SiteHeader() {
             asChild
             variant="ghost"
             size="sm"
-            className={pathname === "/" ? "text-foreground bg-accent" : "text-muted-foreground hover:text-foreground"}
+            className={pathname === "/" ? "h-11 rounded-none border-b-2 border-primary text-primary" : "h-11 rounded-none border-b-2 border-transparent text-muted-foreground hover:text-foreground"}
           >
             <Link href="/" className="flex items-center gap-1.5">
               <BookOpenText className="size-4" aria-hidden />
@@ -89,7 +89,7 @@ export function SiteHeader() {
             asChild
             variant="ghost"
             size="sm"
-            className={pathname === "/explore" ? "text-foreground bg-accent" : "text-muted-foreground hover:text-foreground"}
+            className={pathname === "/explore" ? "h-11 rounded-none border-b-2 border-primary text-primary" : "h-11 rounded-none border-b-2 border-transparent text-muted-foreground hover:text-foreground"}
           >
             <Link href="/explore" className="flex items-center gap-1.5">
               <Compass className="size-4" aria-hidden />
@@ -100,7 +100,7 @@ export function SiteHeader() {
             asChild
             variant="ghost"
             size="sm"
-            className={pathname === "/library" ? "text-foreground bg-accent" : "text-muted-foreground hover:text-foreground"}
+            className={pathname === "/library" ? "h-11 rounded-none border-b-2 border-primary text-primary" : "h-11 rounded-none border-b-2 border-transparent text-muted-foreground hover:text-foreground"}
           >
             <Link href="/library" className="flex items-center gap-1.5">
               <Library className="size-4" aria-hidden />
@@ -111,7 +111,7 @@ export function SiteHeader() {
             asChild
             variant="ghost"
             size="sm"
-            className={pathname === "/updates" ? "text-foreground bg-accent" : "text-muted-foreground hover:text-foreground"}
+            className={pathname === "/updates" ? "h-11 rounded-none border-b-2 border-primary text-primary" : "h-11 rounded-none border-b-2 border-transparent text-muted-foreground hover:text-foreground"}
           >
             <Link href="/updates" className="flex items-center gap-1.5">
               <BookMarked className="size-4" aria-hidden />
@@ -133,13 +133,13 @@ export function SiteHeader() {
               type="search"
               name="q"
               placeholder="ابحث عن أعمال أو مؤلفين…"
-              className="h-9 w-full rounded-xl border border-border/70 bg-card/90 pe-3 ps-8 text-xs text-foreground placeholder:text-muted-foreground transition hover:border-border focus:border-primary/60 focus:bg-card focus:outline-none focus:ring-1 focus:ring-primary/60"
+              className="h-11 w-full rounded-xl border border-border/70 bg-card/90 pe-3 ps-8 text-xs text-foreground placeholder:text-muted-foreground transition hover:border-border focus:border-primary/60 focus:bg-card focus:outline-none focus:ring-1 focus:ring-primary/60"
               aria-label="ابحث في المكتبة"
             />
           </form>
 
           {/* Mobile search icon */}
-          <Button asChild variant="ghost" size="icon" className="size-9 text-muted-foreground hover:text-foreground md:hidden">
+          <Button asChild variant="ghost" size="icon" className="size-11 text-muted-foreground hover:text-foreground md:hidden">
             <Link href="/explore" aria-label="ابحث في المكتبة">
               <Search className="size-4" aria-hidden />
             </Link>
@@ -153,7 +153,7 @@ export function SiteHeader() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
-                  className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex size-11 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label="قائمة الحساب"
                 >
                   <Avatar className="size-9 border border-border">
@@ -231,8 +231,9 @@ export function BottomNav() {
             <Link
               key={it.label}
               href={it.href}
+              aria-current={active ? "page" : undefined}
               className={`flex h-14 flex-col items-center justify-center gap-1 text-[11px] font-medium transition ${
-                active ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                active ? "border-t-2 border-primary text-primary" : "border-t-2 border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               <it.icon className="size-5" aria-hidden />

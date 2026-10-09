@@ -9,6 +9,11 @@ import {
   RotateCcw,
   Check,
   ArrowUpDown,
+  BookOpen,
+  Layers,
+  BookText,
+  Palette,
+  Compass,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -37,6 +42,8 @@ import {
   type Category,
   type SeriesStatus,
 } from "@/lib/constants";
+
+const CATEGORY_ICONS = { manga: BookOpen, manhwa: Layers, novel: BookText, comic: Palette };
 
 const SORT_LABELS: Record<string, string> = {
   popular: "الأكثر رواجًا",
@@ -134,7 +141,7 @@ function ExploreSearchField({ q, updateParam }: { q: string; updateParam: (patch
               setValue("");
               updateParam({ q: null });
             }}
-            className="absolute end-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="absolute end-0 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
             aria-label="مسح نص البحث"
           >
             <X className="size-4" />
@@ -153,7 +160,7 @@ export function ExploreDesktopSidebar() {
 
   return (
     <aside
-      className="hidden lg:block w-64 shrink-0 space-y-6 rounded-2xl border border-border/70 bg-[#191C25] p-5 shadow-sm"
+      className="hidden lg:block w-60 shrink-0 space-y-5 rounded-2xl border border-border/70 bg-card/40 p-4"
       aria-label="مرشحات الاستكشاف"
     >
       <div className="flex items-center justify-between pb-3 border-b border-border/60">
@@ -165,7 +172,7 @@ export function ExploreDesktopSidebar() {
           <button
             type="button"
             onClick={clearAll}
-            className="text-xs text-muted-foreground hover:text-primary transition flex items-center gap-1"
+            className="min-h-11 text-xs text-muted-foreground hover:text-primary transition flex items-center gap-1"
           >
             <RotateCcw className="size-3" />
             <span>مسح</span>
@@ -175,7 +182,7 @@ export function ExploreDesktopSidebar() {
 
       {/* 1. Category */}
       <div className="space-y-2.5">
-        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+        <h3 className="text-xs font-bold text-muted-foreground ">
           تصنيف العمل
         </h3>
         <div className="space-y-1">
@@ -183,7 +190,7 @@ export function ExploreDesktopSidebar() {
             type="button"
             aria-pressed={!category}
             onClick={() => updateParam({ category: null })}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
+            className={`min-h-11 w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
               !category
                 ? "bg-primary/20 text-primary border border-primary/40 font-bold"
                 : "text-foreground hover:bg-accent/60"
@@ -198,7 +205,7 @@ export function ExploreDesktopSidebar() {
               type="button"
               aria-pressed={category === c}
               onClick={() => updateParam({ category: category === c ? null : c })}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
+              className={`min-h-11 w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
                 category === c
                   ? "bg-primary/20 text-primary border border-primary/40 font-bold"
                   : "text-foreground hover:bg-accent/60"
@@ -213,14 +220,15 @@ export function ExploreDesktopSidebar() {
 
       {/* 2. Genre */}
       <div className="space-y-2.5">
-        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+        <h3 className="text-xs font-bold text-muted-foreground ">
           النوع القصصي
         </h3>
-        <div className="space-y-1 max-h-56 overflow-y-auto scrollbar-elegant pe-1">
+        <div className="space-y-1 max-h-80 overflow-y-auto scrollbar-elegant pe-1">
           <button
             type="button"
+            aria-pressed={!genre}
             onClick={() => updateParam({ genre: null })}
-            className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+            className={`min-h-11 w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium transition ${
               !genre
                 ? "bg-primary/20 text-primary border border-primary/40 font-bold"
                 : "text-foreground hover:bg-accent/60"
@@ -235,7 +243,7 @@ export function ExploreDesktopSidebar() {
               type="button"
               aria-pressed={genre === g}
                   onClick={() => updateParam({ genre: genre === g ? null : g })}
-              className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+              className={`min-h-11 w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium transition ${
                 genre === g
                   ? "bg-primary/20 text-primary border border-primary/40 font-bold"
                   : "text-foreground hover:bg-accent/60"
@@ -250,14 +258,15 @@ export function ExploreDesktopSidebar() {
 
       {/* 3. Status */}
       <div className="space-y-2.5">
-        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+        <h3 className="text-xs font-bold text-muted-foreground ">
           حالة العمل
         </h3>
         <div className="space-y-1">
           <button
             type="button"
+            aria-pressed={!status}
             onClick={() => updateParam({ status: null })}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
+            className={`min-h-11 w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
               !status
                 ? "bg-primary/20 text-primary border border-primary/40 font-bold"
                 : "text-foreground hover:bg-accent/60"
@@ -272,7 +281,7 @@ export function ExploreDesktopSidebar() {
               type="button"
               aria-pressed={status === st}
                   onClick={() => updateParam({ status: status === st ? null : st })}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
+              className={`min-h-11 w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
                 status === st
                   ? "bg-primary/20 text-primary border border-primary/40 font-bold"
                   : "text-foreground hover:bg-accent/60"
@@ -308,33 +317,36 @@ export function ExploreMobileCategoryTabs() {
   const { category, updateParam } = useExploreFilters();
 
   return (
-    <div className="flex lg:hidden items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none" role="group" aria-label="تصنيفات الأعمال">
+    <div className="grid grid-cols-5 gap-2 lg:hidden" role="group" aria-label="تصنيفات الأعمال">
       <button
         type="button"
         aria-pressed={!category}
         onClick={() => updateParam({ category: null })}
-        className={`shrink-0 rounded-xl px-4 py-2 text-xs font-bold transition ${
+        className={`flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-xs font-bold transition ${
           !category
             ? "bg-primary text-primary-foreground shadow-sm"
             : "border border-border/70 bg-[#191C25] text-foreground hover:bg-accent/70"
         }`}
       >
+        <Compass className="size-4" aria-hidden />
         الكل
       </button>
       {CATEGORIES.map((c) => {
         const active = category === c;
+        const Icon = CATEGORY_ICONS[c];
         return (
           <button
             key={c}
             type="button"
             aria-pressed={active}
             onClick={() => updateParam({ category: active ? null : c })}
-            className={`shrink-0 rounded-xl px-4 py-2 text-xs font-bold transition ${
+            className={`flex min-h-16 min-w-0 flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-xs font-bold transition ${
               active
                 ? "bg-primary text-primary-foreground shadow-sm"
                 : "border border-border/70 bg-[#191C25] text-foreground hover:bg-accent/70"
             }`}
           >
+            <Icon className="size-4" aria-hidden />
             {CATEGORY_LABELS[c]}
           </button>
         );
@@ -363,7 +375,7 @@ export function ExploreMobileFilterSheet() {
         <Button
           variant="outline"
           size="sm"
-          className={`lg:hidden gap-2 rounded-xl border-border/70 bg-[#191C25] text-xs font-bold ${
+          className={`lg:hidden h-11 gap-2 rounded-lg border-primary/50 bg-primary/15 text-xs font-bold ${
             activeFilterCount > 0 ? "border-primary/60 text-primary" : "text-foreground"
           }`}
           aria-label={`فتح المرشحات (${activeFilterCount} نشط)`}
@@ -388,12 +400,13 @@ export function ExploreMobileFilterSheet() {
         <div className="space-y-6 py-4">
           {/* Category */}
           <div className="space-y-2">
-            <h4 className="text-xs font-bold text-muted-foreground uppercase">تصنيف العمل</h4>
+            <h4 className="text-xs font-bold text-muted-foreground ">تصنيف العمل</h4>
             <div className="grid grid-cols-2 gap-1.5">
               <button
                 type="button"
+                aria-pressed={!category}
                 onClick={() => updateParam({ category: null })}
-                className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                className={`min-h-11 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                   !category ? "bg-primary text-primary-foreground font-bold" : "bg-card text-foreground border border-border/60"
                 }`}
               >
@@ -405,7 +418,7 @@ export function ExploreMobileFilterSheet() {
                   type="button"
                   aria-pressed={category === c}
               onClick={() => updateParam({ category: category === c ? null : c })}
-                  className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                  className={`min-h-11 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                     category === c
                       ? "bg-primary text-primary-foreground font-bold"
                       : "bg-card text-foreground border border-border/60"
@@ -419,12 +432,13 @@ export function ExploreMobileFilterSheet() {
 
           {/* Genre */}
           <div className="space-y-2">
-            <h4 className="text-xs font-bold text-muted-foreground uppercase">النوع القصصي</h4>
+            <h4 className="text-xs font-bold text-muted-foreground ">النوع القصصي</h4>
             <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
-                onClick={() => updateParam({ genre: null })}
-                className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                aria-pressed={!genre}
+            onClick={() => updateParam({ genre: null })}
+                className={`min-h-11 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                   !genre ? "bg-primary text-primary-foreground font-bold" : "bg-card text-foreground border border-border/60"
                 }`}
               >
@@ -436,7 +450,7 @@ export function ExploreMobileFilterSheet() {
                   type="button"
                   aria-pressed={genre === g}
                   onClick={() => updateParam({ genre: genre === g ? null : g })}
-                  className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                  className={`min-h-11 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                     genre === g
                       ? "bg-primary text-primary-foreground font-bold"
                       : "bg-card text-foreground border border-border/60"
@@ -450,12 +464,13 @@ export function ExploreMobileFilterSheet() {
 
           {/* Status */}
           <div className="space-y-2">
-            <h4 className="text-xs font-bold text-muted-foreground uppercase">حالة العمل</h4>
+            <h4 className="text-xs font-bold text-muted-foreground ">حالة العمل</h4>
             <div className="grid grid-cols-2 gap-1.5">
               <button
                 type="button"
-                onClick={() => updateParam({ status: null })}
-                className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                aria-pressed={!status}
+            onClick={() => updateParam({ status: null })}
+                className={`min-h-11 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                   !status ? "bg-primary text-primary-foreground font-bold" : "bg-card text-foreground border border-border/60"
                 }`}
               >
@@ -467,7 +482,7 @@ export function ExploreMobileFilterSheet() {
                   type="button"
                   aria-pressed={status === st}
                   onClick={() => updateParam({ status: status === st ? null : st })}
-                  className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                  className={`min-h-11 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
                     status === st
                       ? "bg-primary text-primary-foreground font-bold"
                       : "bg-card text-foreground border border-border/60"
@@ -482,7 +497,7 @@ export function ExploreMobileFilterSheet() {
 
         <div className="mt-6 flex items-center gap-2 pt-4 border-t border-border/60">
           <SheetClose asChild>
-            <Button className="flex-1 bg-primary text-primary-foreground font-bold text-xs">
+            <Button className="h-11 flex-1 bg-primary text-primary-foreground font-bold text-xs">
               عرض النتائج
             </Button>
           </SheetClose>
@@ -490,7 +505,7 @@ export function ExploreMobileFilterSheet() {
             variant="outline"
             size="sm"
             onClick={clearAll}
-            className="text-xs border-border/70 text-muted-foreground"
+            className="h-11 text-xs border-border/70 text-muted-foreground"
           >
             مسح المرشحات
           </Button>
@@ -512,7 +527,7 @@ export function ExploreSortSelector() {
         <Button
           variant="outline"
           size="sm"
-          className="gap-2 rounded-xl border-border/70 bg-[#191C25] text-xs font-semibold text-foreground hover:border-primary/50"
+          className="h-11 gap-2 rounded-lg border-border/70 bg-card text-xs font-semibold text-foreground hover:border-primary/50"
           aria-label="خيارات الترتيب"
         >
           <ArrowUpDown className="size-3.5 text-muted-foreground" aria-hidden />
@@ -522,19 +537,19 @@ export function ExploreSortSelector() {
       <DropdownMenuContent align="end" className="w-40 bg-[#191C25] border-border/70">
         <DropdownMenuItem
           onClick={() => updateParam({ sort: "popular" })}
-          className={`cursor-pointer text-xs ${sort === "popular" ? "text-primary font-bold" : ""}`}
+          className={`min-h-11 cursor-pointer text-xs ${sort === "popular" ? "text-primary font-bold" : ""}`}
         >
           {SORT_LABELS.popular}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => updateParam({ sort: "newest" })}
-          className={`cursor-pointer text-xs ${sort === "newest" ? "text-primary font-bold" : ""}`}
+          className={`min-h-11 cursor-pointer text-xs ${sort === "newest" ? "text-primary font-bold" : ""}`}
         >
           {SORT_LABELS.newest}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => updateParam({ sort: "rating" })}
-          className={`cursor-pointer text-xs ${sort === "rating" ? "text-primary font-bold" : ""}`}
+          className={`min-h-11 cursor-pointer text-xs ${sort === "rating" ? "text-primary font-bold" : ""}`}
         >
           {SORT_LABELS.rating}
         </DropdownMenuItem>
@@ -562,16 +577,16 @@ export function ExploreActiveChips({ resultCount }: { resultCount: number }) {
       <span className="hidden lg:inline font-semibold text-muted-foreground">{resultCount} عملاً</span>
       {format && isFormat(format) && <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-accent px-2.5 py-1">
         {FORMAT_LABELS[format]}
-        <button type="button" onClick={() => updateParam({ format: null })} aria-label="إزالة مرشح طريقة القراءة"><X className="size-3" /></button>
+        <button type="button" onClick={() => updateParam({ format: null })} className="flex size-11 items-center justify-center" aria-label="إزالة مرشح طريقة القراءة"><X className="size-3" /></button>
       </span>}
 
       {q && (
-        <span className="inline-flex items-center gap-1 rounded-lg border border-border/80 bg-accent/60 px-2.5 py-1 text-foreground">
-          <span>«{q}»</span>
+        <span className="inline-flex max-w-full items-center gap-1 rounded-lg border border-border/80 bg-accent/60 px-2.5 py-1 text-foreground">
+          <span className="min-w-0 break-all">«{q}»</span>
           <button
             type="button"
             onClick={() => updateParam({ q: null })}
-            className="text-muted-foreground hover:text-foreground"
+            className="flex size-11 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
             aria-label="إزالة نص البحث"
           >
             <X className="size-3" />
@@ -584,9 +599,8 @@ export function ExploreActiveChips({ resultCount }: { resultCount: number }) {
           <span>{CATEGORY_LABELS[category as Category] || category}</span>
           <button
             type="button"
-            aria-pressed={!category}
             onClick={() => updateParam({ category: null })}
-            className="hover:text-foreground"
+            className="flex size-11 shrink-0 items-center justify-center hover:text-foreground"
             aria-label="إزالة مرشح التصنيف"
           >
             <X className="size-3" />
@@ -600,7 +614,7 @@ export function ExploreActiveChips({ resultCount }: { resultCount: number }) {
           <button
             type="button"
             onClick={() => updateParam({ genre: null })}
-            className="hover:text-foreground"
+            className="flex size-11 shrink-0 items-center justify-center hover:text-foreground"
             aria-label="إزالة مرشح النوع"
           >
             <X className="size-3" />
@@ -614,7 +628,7 @@ export function ExploreActiveChips({ resultCount }: { resultCount: number }) {
           <button
             type="button"
             onClick={() => updateParam({ status: null })}
-            className="text-muted-foreground hover:text-foreground"
+            className="flex size-11 shrink-0 items-center justify-center text-muted-foreground hover:text-foreground"
             aria-label="إزالة مرشح الحالة"
           >
             <X className="size-3" />
@@ -625,7 +639,7 @@ export function ExploreActiveChips({ resultCount }: { resultCount: number }) {
       <button
         type="button"
         onClick={clearAll}
-        className="text-[11px] font-semibold text-primary/90 underline-offset-4 hover:underline ms-1"
+        className="min-h-11 text-[11px] font-semibold text-primary/90 underline-offset-4 hover:underline ms-1"
       >
         مسح المرشحات
       </button>

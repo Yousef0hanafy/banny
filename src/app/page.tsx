@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { BookMarked, Compass, Flame, LibraryBig, Sparkles } from "lucide-react";
+import { Compass, Flame, LibraryBig, Sparkles } from "lucide-react";
 import { SiteHeader, SiteFooter, BottomNav } from "@/components/library/chrome";
 import { ContinueReadingHero } from "@/components/library/continue-reading-hero";
 import { Rail, SeriesCardItem } from "@/components/library/series-card";
@@ -91,7 +91,7 @@ export default async function HomePage() {
       const resolved = await Promise.all(
         slugs.map(async (slug) => {
           const s = await getSeriesBySlug(slug);
-          return s ? { slug, cover: s.coverPath, title: s.titleAr, genres: parseJsonArray(s.genresJson) } : null;
+          return s?.publishedChapters.length ? { slug, cover: s.coverPath, title: s.titleAr, genres: parseJsonArray(s.genresJson) } : null;
         })
       );
       return {
@@ -100,6 +100,10 @@ export default async function HomePage() {
       };
     })
   );
+
+  const editorialPicks = Array.from(new Map(collectionData.flatMap(col =>
+    col.series.map(series => [series.slug, { ...series, collectionTitle: col.titleAr }] as const)
+  )).values()).slice(0, 5);
 
   return (
     <div className="flex min-h-screen flex-col bg-background text-foreground">
@@ -119,70 +123,27 @@ export default async function HomePage() {
           {/* Grouped Latest Updates (three-column desktop grid / vertical mobile list) */}
           <HomeLatestUpdates updates={groupedLatest} />
 
-          {/* اختيارات الفريق / المجموعات التحريرية */}
-          {collectionData.length > 0 && (
-            <section className="mt-10 sm:mt-12" aria-label="اختيارات الفريق">
-              <div className="mb-4 flex items-center justify-between px-1">
-                <div className="flex items-center gap-2">
+
+          {editorialPicks.length > 0 && (
+            <section className="mt-7 sm:mt-8" aria-label="اختيارات الفريق">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="flex items-center gap-2 text-lg font-bold sm:text-xl">
                   <Sparkles className="size-5 text-gold" aria-hidden />
-                  <h2 className="text-lg font-bold text-foreground sm:text-xl">اختيارات الفريق</h2>
-                </div>
-                <Link
-                  href="/explore"
-                  className="text-sm font-medium text-muted-foreground transition hover:text-primary"
-                >
-                  عرض الكل ←
-                </Link>
+                  اختيارات الفريق
+                </h2>
+                <Link href="/explore" className="inline-flex min-h-11 items-center text-sm text-primary hover:text-foreground">عرض الكل ←</Link>
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {collectionData.map((col) => (
-                  <div
-                    key={col.id}
-                    className="overflow-hidden rounded-xl border border-border/70 bg-[#191C25] p-4 sm:p-5 shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="flex items-center gap-2 text-base font-bold text-foreground">
-                          {col.theme === "gold" ? (
-                            <BookMarked className="size-4 text-gold" aria-hidden />
-                          ) : (
-                            <Sparkles className="size-4 text-primary" aria-hidden />
-                          )}
-                          {col.titleAr}
-                        </h3>
-                        {col.descriptionAr && (
-                          <p className="mt-1 line-clamp-2 text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                            {col.descriptionAr}
-                          </p>
-                        )}
-                      </div>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                {editorialPicks.map(work => (
+                  <Link key={work.slug} href={'/series/' + work.slug} className="group min-w-0 overflow-hidden rounded-lg border border-border bg-card/50 transition hover:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+                    <div className="relative aspect-[4/5] overflow-hidden">
+                      <Image src={work.cover} alt={'غلاف ' + work.title} fill sizes="(max-width: 640px) 50vw, 220px" className="object-cover object-top transition duration-300 group-hover:scale-[1.03]" />
                     </div>
-
-                    {/* Series covers preview */}
-                    <div className="mt-4 flex items-center gap-3 overflow-x-auto pb-1 scrollbar-none">
-                      {col.series.slice(0, 4).map((s) => (
-                        <Link
-                          key={s.slug}
-                          href={`/series/${s.slug}`}
-                          className="group relative block w-20 shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-                        >
-                          <div className="relative aspect-[2/3] w-full overflow-hidden rounded-lg border border-border/70 shadow-sm transition group-hover:border-primary/50 group-hover:scale-105">
-                            <Image
-                              src={s.cover}
-                              alt={s.title}
-                              fill
-                              sizes="80px"
-                              className="object-cover"
-                            />
-                          </div>
-                          <span className="mt-1.5 block truncate text-[11px] font-medium text-foreground transition group-hover:text-primary">
-                            {s.title}
-                          </span>
-                        </Link>
-                      ))}
+                    <div className="p-3">
+                      <h3 className="line-clamp-2 text-sm font-bold group-hover:text-primary">{work.title}</h3>
+                      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{work.collectionTitle}</p>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </section>
@@ -221,12 +182,12 @@ export default async function HomePage() {
               <Compass className="size-5 text-primary" aria-hidden />
               <h2 className="text-lg font-bold text-foreground sm:text-xl">اكتشف حسب النوع</h2>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="scrollbar-none flex gap-2 overflow-x-auto pb-2">
               {genres.map((g) => (
                 <Link
                   key={g.genre}
                   href={`/explore?genre=${encodeURIComponent(g.genre)}`}
-                  className="group flex items-center gap-2 rounded-xl border border-border/70 bg-[#191C25] px-3.5 py-2 text-xs font-medium text-foreground transition hover:border-primary/50 hover:bg-[#1f1c2e] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                  className="group flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-border/70 bg-[#191C25] px-3.5 py-2 text-xs font-medium text-foreground transition hover:border-primary/50 hover:bg-[#1f1c2e] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                 >
                   <span className="group-hover:text-primary">{g.genre}</span>
                   <span className="rounded-full bg-secondary/90 px-1.5 py-0.2 text-[10px] text-muted-foreground">

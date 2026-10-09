@@ -108,13 +108,8 @@ export default async function ExplorePage({
           </header>
 
           <Suspense fallback={<div className="h-20 animate-pulse rounded-xl bg-card/60" />}>
-            {/* Mobile Category Bar (Horizontal Tabs) */}
-            <div className="mb-3 lg:hidden">
-              <ExploreMobileCategoryTabs />
-            </div>
-
             {/* Layout Container */}
-            <div className="flex flex-col lg:flex-row items-start gap-6">
+            <div className="flex flex-col lg:flex-row items-start gap-5">
               {/* Desktop Filters Sidebar */}
               <ExploreDesktopSidebar />
 
@@ -122,6 +117,7 @@ export default async function ExplorePage({
               <div className="min-w-0 flex-1 w-full space-y-4">
                 {/* Search Input */}
                 <ExploreSearchInput />
+                <ExploreMobileCategoryTabs />
 
                 {/* Mobile Filter Controls Row (Sheet trigger + Sort + Result count) */}
                 <div className="flex lg:hidden items-center justify-between gap-2 pt-1">

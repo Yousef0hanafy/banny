@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Clock, MoreVertical } from "lucide-react";
+import { Clock, LockKeyhole } from "lucide-react";
 import type { Category, Format } from "@/lib/constants";
 import { getCategoryLabel } from "@/components/library/series-card";
 import { readerHref } from "@/lib/reader-route";
@@ -44,7 +44,7 @@ export function HomeLatestUpdates({
   if (updates.length === 0) return null;
 
   return (
-    <section className="mt-10 sm:mt-12" aria-label="آخر الفصول">
+    <section className="mt-7 sm:mt-8" aria-label="آخر الفصول">
       <div className="mb-4 flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           <Clock className="size-5 text-primary" aria-hidden />
@@ -52,7 +52,7 @@ export function HomeLatestUpdates({
         </div>
         <Link
           href="/updates"
-          className="text-sm font-medium text-muted-foreground transition hover:text-primary"
+          className="inline-flex min-h-11 items-center text-sm font-medium text-primary transition hover:text-foreground"
         >
           عرض الكل ←
         </Link>
@@ -69,12 +69,12 @@ export function HomeLatestUpdates({
           return (
             <div
               key={item.series.slug}
-              className="group relative flex items-center gap-3.5 rounded-xl border border-border/70 bg-[#191C25] p-3 transition duration-200 hover:border-primary/50 hover:bg-[#1a1728] shadow-sm"
+              className="group relative flex min-w-0 items-stretch gap-3 overflow-hidden rounded-lg border border-border bg-card/50 transition hover:border-primary/50"
             >
               {/* Cover Thumbnail */}
               <Link
                 href={`/series/${item.series.slug}`}
-                className="relative h-20 w-16 shrink-0 overflow-hidden rounded-lg border border-border/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="relative w-[86px] shrink-0 overflow-hidden sm:w-[110px]"
                 tabIndex={-1}
                 aria-hidden
               >
@@ -82,36 +82,34 @@ export function HomeLatestUpdates({
                   src={item.series.coverPath || "/art/covers/warden-of-the-twilight-gate.webp"}
                   alt={`غلاف ${item.series.titleAr}`}
                   fill
-                  sizes="80px"
-                  className="object-cover transition duration-300 group-hover:scale-105"
+                  sizes="110px"
+                  className="object-cover object-[50%_25%] transition duration-300 group-hover:scale-105"
                 />
               </Link>
 
               {/* Work & Chapters info */}
-              <div className="min-w-0 flex-1 space-y-1">
+              <div className="min-w-0 flex-1 py-2 pe-3">
                 {/* Title + More */}
                 <div className="flex items-center justify-between gap-2">
                   <Link
                     href={`/series/${item.series.slug}`}
-                    className="truncate text-sm sm:text-base font-bold text-foreground transition group-hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                    className="line-clamp-2 min-h-11 text-sm font-bold text-foreground transition hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                   >
                     {item.series.titleAr}
                   </Link>
 
-                  <span className="text-muted-foreground/60 shrink-0" aria-hidden>
-                    <MoreVertical className="size-3.5" />
-                  </span>
                 </div>
 
                 {/* Chapter links (up to 2 newest links) */}
-                <div className="flex flex-wrap items-center gap-2" role="list" aria-label={`فصول ${item.series.titleAr}`}>
+                <div className="flex flex-wrap items-center gap-x-2" role="list" aria-label={`فصول ${item.series.titleAr}`}>
                   {newest && (
                     <Link
                       role="listitem"
                       href={readerHref(item.series.format, item.series.slug, newest.number)}
-                      className="inline-flex items-center gap-1.5 rounded-md bg-secondary/80 px-2 py-0.5 text-xs font-medium text-foreground transition hover:bg-primary/20 hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                      className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-1 text-xs font-medium text-foreground transition hover:text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
                     >
                       <span>الفصل {newest.number}</span>
+                      {newest.isPremiumDemo && <LockKeyhole className="size-3 text-gold" aria-label="فصل مقفل" />}
                       <span className="sr-only"> — {newest.titleAr}، {item.series.titleAr}</span>
                       {isRecent && (
                         <span className="flex items-center gap-1 text-[10px] text-primary font-bold">
@@ -126,7 +124,7 @@ export function HomeLatestUpdates({
                     <Link
                       role="listitem"
                       href={readerHref(item.series.format, item.series.slug, second.number)}
-                      className="inline-flex items-center rounded-md px-1.5 py-0.5 text-xs text-muted-foreground transition hover:text-foreground hover:bg-secondary/60"
+                      className="inline-flex min-h-11 items-center rounded-md px-1 text-xs text-muted-foreground transition hover:text-primary"
                     >
                       الفصل {second.number}<span className="sr-only"> — {second.titleAr}، {item.series.titleAr}</span>
                     </Link>

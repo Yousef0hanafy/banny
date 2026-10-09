@@ -7,6 +7,7 @@ import { CATEGORIES, FORMATS } from "@/lib/constants";
 import { scoreDocument, suggestTitle, tokenizeArabic } from "@/lib/arabic-search";
 import type { Category, CommentStatus, Format, Role, SeriesStatus, Workflow } from "@/lib/constants";
 import { isStaffRole } from "@/lib/team-access";
+import { displayCover } from "@/lib/demo-cover-art";
 
 /* ------------------------------------------------------------------ */
 /* Session / role helpers (application-level authorization — there is   */
@@ -112,7 +113,7 @@ export function toCard(s: {
     status: s.status as SeriesStatus,
     genres: parseJsonArray(s.genresJson),
     author: s.author,
-    coverPath: s.coverPath,
+    coverPath: displayCover(s.coverPath),
     accent: s.accent,
     ratingAvg: s.ratingAvg,
     ratingCount: s.ratingCount,
@@ -268,6 +269,7 @@ export async function getSeriesBySlug(slug: string) {
   const scheduled = s.chapters.filter((c) => c.scheduledFor && c.scheduledFor > now);
   return {
     ...s,
+    coverPath: displayCover(s.coverPath),
     publishedChapters: live.map(mapChapter),
     scheduledChapters: scheduled.map(mapChapter),
   };
@@ -364,7 +366,7 @@ export async function getContinueReading(profileId: string, limit = 3): Promise<
   return rows.map((r) => ({
     seriesSlug: r.series.slug,
     seriesTitle: r.series.titleAr,
-    coverPath: r.series.coverPath,
+    coverPath: displayCover(r.series.coverPath),
     accent: r.series.accent,
     format: r.series.format as Format,
     chapterNumber: r.chapter.number,
@@ -391,7 +393,7 @@ export async function getLatestUpdates(limit = 10) {
     titleAr: c.titleAr,
     publishedAt: c.publishedAt as Date,
     isPremiumDemo: c.isPremiumDemo,
-    series: c.series,
+    series: { ...c.series, coverPath: displayCover(c.series.coverPath) },
   }));
 }
 

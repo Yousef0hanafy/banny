@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { liveChapterWhere } from "@/lib/queries";
+import { displayCover } from "@/lib/demo-cover-art";
 
 const requestSchema = z.object({ targets: z.array(z.object({
   seriesSlug: z.string().min(1).max(200),
@@ -30,6 +31,6 @@ export async function POST(request: Request) {
   return NextResponse.json({ readable: chapters.map(c => ({
     seriesSlug: c.series.slug, chapterNumber: c.number, format: c.series.format,
     seriesTitle: c.series.titleAr, chapterTitle: c.titleAr,
-    coverPath: c.series.coverPath, accent: c.series.accent,
+    coverPath: displayCover(c.series.coverPath), accent: c.series.accent,
   })) });
 }

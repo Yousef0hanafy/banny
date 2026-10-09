@@ -60,27 +60,27 @@ export function ContinueReadingHero({
     <section className="pt-4 sm:pt-6" aria-label="وحدة القراءة الرئيسية">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         {loading ? (
-          <div className="h-48 sm:h-56 w-full animate-pulse rounded-2xl border border-border/60 bg-card/60" />
+          <div className="h-48 md:h-52 w-full animate-pulse rounded-xl border border-border/60 bg-card/60" />
         ) : hero ? (
           /* Returning reader with actual progress */
           <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-[#191C25] shadow-xl">
-            <div className="flex items-stretch">
+            <div className="flex min-h-48 items-stretch md:min-h-52 md:flex-row-reverse">
               {/* Cover Art Visual */}
-              <div className="relative w-24 sm:w-36 md:w-5/12 lg:w-1/2 shrink-0 overflow-hidden">
+              <div className="relative w-[32%] shrink-0 overflow-hidden md:w-[58%]">
                 <Image
                   src={hero.coverPath || "/art/covers/warden-of-the-twilight-gate.webp"}
                   alt={`غلاف ${hero.seriesTitle}`}
                   fill
                   priority
-                  className="object-cover object-top"
-                  sizes="(max-width: 768px) 100vw, 50vw"
+                  className="object-cover object-[50%_28%] md:object-[50%_8%]"
+                  sizes="(max-width: 768px) 32vw, 640px"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#191C25] via-transparent to-transparent md:hidden" />
-                <div className="hidden md:block absolute inset-0 bg-gradient-to-s from-[#191C25] via-transparent to-transparent rtl:bg-gradient-to-l ltr:bg-gradient-to-r" />
+                <div className="absolute inset-0 hidden bg-gradient-to-l from-card via-card/10 to-transparent md:block" />
               </div>
 
               {/* Progress Content */}
-              <div className="flex min-w-0 flex-1 flex-col justify-center p-4 sm:p-7 md:p-8">
+              <div className="flex min-w-0 flex-1 flex-col justify-center p-4 sm:p-5 md:p-6">
                 <span className="text-xs font-semibold text-primary">
                   كمّل القراءة
                 </span>
@@ -132,7 +132,7 @@ export function ContinueReadingHero({
                     <Link
                       key={it.seriesSlug}
                       href={readerHref(it.format, it.seriesSlug, it.chapterNumber)}
-                      className="inline-flex items-center gap-2 rounded-lg border border-border/60 bg-card/60 px-2.5 py-1 text-foreground transition hover:border-primary/50 hover:text-primary"
+                      className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-border/60 bg-card/60 px-2.5 py-1 text-foreground transition hover:border-primary/50 hover:text-primary"
                     >
                       <span className="truncate max-w-[140px] font-medium">{it.seriesTitle}</span>
                       <span className="text-[11px] text-muted-foreground">فصل {it.chapterNumber} ({Math.round(it.percent)}٪)</span>
@@ -145,21 +145,21 @@ export function ContinueReadingHero({
         ) : guestFeatured ? (
           /* Guest reader / no progress: real guest featured work */
           <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-[#191C25] shadow-xl">
-            <div className="flex items-stretch">
-              <div className="relative w-24 sm:w-36 md:w-5/12 lg:w-1/2 shrink-0 overflow-hidden">
+            <div className="flex min-h-48 items-stretch md:min-h-52 md:flex-row-reverse">
+              <div className="relative w-[32%] shrink-0 overflow-hidden md:w-[58%]">
                 <Image
                   src={guestFeatured.coverPath || "/art/covers/warden-of-the-twilight-gate.webp"}
                   alt={`غلاف ${guestFeatured.titleAr}`}
                   fill
                   priority
-                  className="object-cover object-top"
-                  sizes="(max-width: 768px) 100vw, 50vw"
+                  className="object-cover object-[50%_28%] md:object-[50%_8%]"
+                  sizes="(max-width: 768px) 32vw, 640px"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#191C25] via-transparent to-transparent md:hidden" />
-                <div className="hidden md:block absolute inset-0 bg-gradient-to-s from-[#191C25] via-transparent to-transparent rtl:bg-gradient-to-l ltr:bg-gradient-to-r" />
+                <div className="absolute inset-0 hidden bg-gradient-to-l from-card via-card/10 to-transparent md:block" />
               </div>
 
-              <div className="flex min-w-0 flex-1 flex-col justify-center p-4 sm:p-7 md:p-8">
+              <div className="flex min-w-0 flex-1 flex-col justify-center p-4 sm:p-5 md:p-6">
                 <span className="text-xs font-semibold text-primary">
                   اختيار مميز للقراءة
                 </span>
@@ -184,7 +184,7 @@ export function ContinueReadingHero({
                     </Link>
                   </Button>
 
-                  <Button asChild variant="outline" size="lg" className="border-border/80">
+                  <Button asChild variant="outline" size="lg" className="hidden border-border/80 lg:inline-flex">
                     <Link href="/explore">
                       <Sparkles className="size-4 me-1.5 text-gold" aria-hidden />
                       <span>استكشف المزيد</span>

@@ -6,13 +6,15 @@ Approved by the founder on 2026-10-09. Replace the old public-page composition w
 
 Reference directory: C:/Users/user/.codex/visualizations/2026/10/09/bunny-discovery-design/
 
+The founder reaffirmed the four supplied v3/img01.png (home), img02.png (explore), img1.png (work) and img2.png (reader) boards as the final visual target on 2026-10-10. Home and explore are the current package; completion of that package does not imply completion of work, reader or the entire product.
+
 - home-concept.png: desktop and mobile returning-reader home.
 - explore-concept.png: desktop and mobile filtered discovery.
 - series-detail-concept.png: desktop and mobile work page.
 - reader-concept.png: desktop and mobile vertical reader.
 - visual-direction.md and design-brief.md: behavior, states, limitations and decisions.
 
-Implement actual semantic components and real data, not screenshots as a background or fixed page. Typography in generated images is approximate. Cover art and numerical values in the boards are illustrative, never a source of factual metadata. Keep supplied local demo art for now; visual layout must work with existing covers and richer future assets. Do not crop the UI boards into content covers.
+Implement actual semantic components and real data, not screenshots as a background or fixed page. Typography in generated images is approximate. Cover art and numerical values in the boards are illustrative, never a source of factual metadata. Original generated illustrations may enrich existing fictional demo titles; retain supplied originals and preserve every uploaded cover URL. See docs/demo-cover-art.md for prompts and provenance. Do not crop the UI boards into content covers.
 
 ## World and mechanics
 

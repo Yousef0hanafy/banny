@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Star, BookOpen, Bookmark } from "lucide-react";
+import { Star, BookOpen } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   CATEGORY_LABELS,
@@ -77,12 +77,6 @@ export function SeriesCardItem({
             <span />
           )}
 
-          <span
-            className="grid size-6 place-items-center rounded-md bg-background/80 text-muted-foreground opacity-70 backdrop-blur transition group-hover:opacity-100 group-hover:text-foreground"
-            aria-hidden
-          >
-            <Bookmark className="size-3.5" />
-          </span>
         </div>
 
         {/* Bottom Badges on Cover */}
@@ -108,7 +102,7 @@ export function SeriesCardItem({
 
       {/* Title & Metadata */}
       <div className="mt-2 space-y-1">
-        <p className="line-clamp-1 text-sm font-bold text-foreground transition group-hover:text-primary">
+        <p className="line-clamp-2 text-sm font-bold text-foreground transition group-hover:text-primary">
           {series.titleAr}
         </p>
 
