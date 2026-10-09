@@ -5,7 +5,7 @@
  * Analytics events are seeded only into an empty table (guarded below), so running
  * the seed twice produces identical row counts.
  */
-import { PrismaClient, Prisma, UserRole, SeriesFormat, SeriesStatus, ChapterWorkflow, ReadingDirection, LibraryShelf, CommentStatus } from "@prisma/client";
+import { PrismaClient, Prisma, UserRole, SeriesCategory, SeriesFormat, SeriesStatus, ChapterWorkflow, ReadingDirection, LibraryShelf, CommentStatus } from "@prisma/client";
 import { scryptSync, randomBytes, timingSafeEqual } from "crypto";
 import { SERIES, COLLECTIONS, DEMO_ACCOUNTS, DEMO_PROGRESS, hashSeed, mulberry32 } from "../scripts/release-a-data.mjs";
 import { SERIES_B, COMMENTS, RATINGS, REPORTS, LIBRARY_SEED } from "../scripts/release-b-data.mjs";
@@ -65,7 +65,9 @@ async function seedSeries() {
       displayOrder: i,
       reads: s.reads,
     };
-    const series = await db.series.upsert({ where: { slug: s.slug }, update: data, create: data });
+    // Re-seeding demo text must not erase an administrator's explicit category.
+    const category = (s as { category?: SeriesCategory }).category ?? (s.format === "manga" ? SeriesCategory.manga : s.format === "novel" ? SeriesCategory.novel : null);
+    const series = await db.series.upsert({ where: { slug: s.slug }, update: data, create: { ...data, category } });
 
     let publishedAt = 40 - i * 3;
     for (const ch of s.chapters) {

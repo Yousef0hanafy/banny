@@ -38,6 +38,15 @@ enum SeriesFormat {
   @@map("series_format")
 }
 
+enum SeriesCategory {
+  manga
+  manhwa
+  novel
+  comic
+
+  @@map("series_category")
+}
+
 enum SeriesStatus {
   ongoing
   completed
@@ -124,6 +133,7 @@ model Series {
   titleAr       String
   titleOriginal String?
   synopsisAr    String
+  category      SeriesCategory?
   format        SeriesFormat
   status        SeriesStatus       @default(ongoing)
   genresJson    String             @default("[]")
@@ -146,6 +156,8 @@ model Series {
   comments      Comment[]
   ratings       Rating[]
   assignments   SeriesAssignment[]
+
+  @@index([category])
 }
 
 model SeriesAssignment {

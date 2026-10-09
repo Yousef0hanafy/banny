@@ -8,6 +8,7 @@ import { notifyNewChapter, notifyCommentLike } from "@/lib/notifications";
 import { revalidatePath } from "next/cache";
 import { isWorkflow, isRole, type Workflow, type Role } from "@/lib/constants";
 import { isStaffRole, isAssignableRole, isAssignedToSeries } from "@/lib/team-access";
+import { categoryMatchesFormat } from "@/lib/content-category";
 
 /* ------------------------------------------------------------------ */
 /* Reading progress (authenticated readers; guests mirror locally)     */
@@ -82,22 +83,31 @@ async function requireModerator() {
   return profile;
 }
 
-const seriesSchema = z.object({
-  id: z.string().optional(),
-  titleAr: z.string().min(2, "العنوان مطلوب"),
-  titleOriginal: z.string().optional(),
-  slug: z
-    .string()
-    .min(2)
-    .regex(/^[a-z0-9-]+$/, "المعرّف: أحرف لاتينية صغيرة وأرقام وشرطات فقط"),
-  synopsisAr: z.string().min(20, "الملخص قصير جدًا (٢٠ حرفًا على الأقل)"),
-  format: z.enum(["manga", "webtoon", "novel"]),
-  status: z.enum(["ongoing", "completed", "hiatus"]),
-  author: z.string().min(2, "المؤلف مطلوب"),
-  translator: z.string().optional(),
-  genres: z.array(z.string()).min(1, "اختر نوعًا واحدًا على الأقل"),
-  isFeatured: z.boolean(),
-});
+const seriesSchema = z
+  .object({
+    id: z.string().optional(),
+    titleAr: z.string().min(2, "العنوان مطلوب"),
+    titleOriginal: z.string().optional(),
+    slug: z
+      .string()
+      .min(2)
+      .regex(/^[a-z0-9-]+$/, "المعرّف: أحرف لاتينية صغيرة وأرقام وشرطات فقط"),
+    synopsisAr: z.string().min(20, "الملخص قصير جدًا (٢٠ حرفًا على الأقل)"),
+    category: z.enum(["manga", "manhwa", "novel", "comic"]).nullable().optional(),
+    format: z.enum(["manga", "webtoon", "novel"]),
+    status: z.enum(["ongoing", "completed", "hiatus"]),
+    author: z.string().min(2, "المؤلف مطلوب"),
+    translator: z.string().optional(),
+    genres: z.array(z.string()).min(1, "اختر نوعًا واحدًا على الأقل"),
+    isFeatured: z.boolean(),
+  })
+  .refine(
+    (data) => categoryMatchesFormat(data.category, data.format),
+    {
+      message: "تصنيف الرواية يتطلب طريقة قراءة رواية نصية، والتصنيفات المصورة تتطلب طريقة قراءة صفحات أو تمرير ويبتون",
+      path: ["category"],
+    }
+  );
 
 export async function upsertSeries(input: unknown): Promise<ActionResult & { slug?: string }> {
   try {
@@ -110,6 +120,7 @@ export async function upsertSeries(input: unknown): Promise<ActionResult & { slu
     return { ok: false, error: parsed.error.issues[0]?.message ?? "invalid" };
   }
   const d = parsed.data;
+  if (!d.id && !d.category) return { ok: false, error: "اختر تصنيف العمل قبل إنشائه" };
   const data = {
     titleAr: d.titleAr,
     titleOriginal: d.titleOriginal || null,
@@ -121,11 +132,14 @@ export async function upsertSeries(input: unknown): Promise<ActionResult & { slu
     translator: d.translator || null,
     genresJson: JSON.stringify(d.genres),
     isFeatured: d.isFeatured,
+    ...(d.category !== undefined ? { category: d.category } : {}),
   };
 
   if (d.id) {
     const existing = await db.series.findUnique({ where: { id: d.id } });
     if (!existing) return { ok: false, error: "not_found" };
+    if (!categoryMatchesFormat(d.category === undefined ? existing.category : d.category, d.format))
+      return { ok: false, error: "تصنيف العمل لا يتوافق مع طريقة القراءة" };
     await db.series.update({ where: { id: d.id }, data });
     revalidatePath("/admin/series");
     revalidatePath(`/series/${d.slug}`);
@@ -137,6 +151,7 @@ export async function upsertSeries(input: unknown): Promise<ActionResult & { slu
   const created = await db.series.create({
     data: {
       ...data,
+      category: d.category ?? null,
       accent: accentPalette[Math.floor(Math.random() * accentPalette.length)],
       coverPath: "", // placeholder until cover art is uploaded (Release B upload flow)
     },

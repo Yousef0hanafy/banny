@@ -1,140 +1,634 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useState, useTransition } from "react";
-import { Search, SlidersHorizontal, X } from "lucide-react";
+import {
+  Search,
+  X,
+  SlidersHorizontal,
+  RotateCcw,
+  Check,
+  ArrowUpDown,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { GENRES, FORMATS, FORMAT_LABELS, SERIES_STATUSES, STATUS_LABELS } from "@/lib/constants";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+  SheetClose,
+} from "@/components/ui/sheet";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  CATEGORIES,
+  CATEGORY_LABELS,
+  GENRES,
+  SERIES_STATUSES,
+  STATUS_LABELS,
+  FORMAT_LABELS,
+  isFormat,
+  type Category,
+  type SeriesStatus,
+} from "@/lib/constants";
 
-export function ExploreFilterBar({ resultCount }: { resultCount: number }) {
+const SORT_LABELS: Record<string, string> = {
+  popular: "الأكثر رواجًا",
+  newest: "آخر الفصول",
+  rating: "الأعلى تقييمًا",
+};
+
+/**
+ * Hook to read and update explore search params smoothly
+ */
+function useExploreFilters() {
   const router = useRouter();
-  const params = useSearchParams();
-  const [pending, startTransition] = useTransition();
-  const [q, setQ] = useState(params.get("q") ?? "");
+  const searchParams = useSearchParams();
+  const [, startTransition] = useTransition();
 
-  const update = useCallback(
-    (patch: Record<string, string | null>) => {
-      const next = new URLSearchParams(params.toString());
-      for (const [k, v] of Object.entries(patch)) {
-        if (v === null || v === "") next.delete(k);
-        else next.set(k, v);
+  const updateParam = (patch: Record<string, string | null>) => {
+    const next = new URLSearchParams(searchParams.toString());
+    for (const [k, v] of Object.entries(patch)) {
+      if (v === null || v === "" || v === "all") {
+        next.delete(k);
+      } else {
+        next.set(k, v);
       }
-      startTransition(() => router.replace(`/explore?${next.toString()}`, { scroll: false }));
-    },
-    [params, router]
-  );
+    }
+    startTransition(() => {
+      router.push(`/explore?${next.toString()}`, { scroll: false });
+    });
+  };
 
-  const hasFilters = ["q", "format", "genre", "status", "sort"].some((k) => params.get(k));
+  const clearAll = () => {
+    startTransition(() => {
+      router.push("/explore", { scroll: false });
+    });
+  };
+
+  const q = searchParams.get("q") ?? "";
+  const category = searchParams.get("category");
+  const format = searchParams.get("format");
+  const genre = searchParams.get("genre");
+  const status = searchParams.get("status");
+  const sort = searchParams.get("sort") ?? "popular";
+
+  const activeFilterCount = [category, format, genre, status].filter(Boolean).length;
+  const hasAnyFilter = Boolean(q || category || format || genre || status || (sort && sort !== "popular"));
+
+  return {
+    q,
+    category,
+    format,
+    genre,
+    status,
+    sort,
+    activeFilterCount,
+    hasAnyFilter,
+    updateParam,
+    clearAll,
+  };
+}
+
+/**
+ * Prominent Search Input (matches explore-concept.png)
+ */
+export function ExploreSearchInput() {
+  const { q, updateParam } = useExploreFilters();
+  return <ExploreSearchField key={q} q={q} updateParam={updateParam} />;
+}
+
+function ExploreSearchField({ q, updateParam }: { q: string; updateParam: (patch: Record<string, string | null>) => void }) {
+  const [value, setValue] = useState(q);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateParam({ q: value.trim() || null });
+  };
 
   return (
-    <div className="sticky top-16 z-30 -mx-4 mb-6 border-b border-border/50 bg-background/90 px-4 py-4 backdrop-blur-md sm:-mx-6 sm:px-6">
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          update({ q: q.trim() || null });
-        }}
-        role="search"
-      >
-        <div className="relative">
-          <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="ابحث بعنوان العمل أو مؤلفه…"
-            className="pe-10 bg-card"
-            aria-label="البحث في المكتبة"
-          />
-          {q && (
-            <button
-              type="button"
-              onClick={() => {
-                setQ("");
-                update({ q: null });
-              }}
-              className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              aria-label="مسح البحث"
-            >
-              <X className="size-4" />
-            </button>
-          )}
+    <form onSubmit={handleSubmit} role="search" className="w-full">
+      <div className="relative">
+        <Search
+          className="absolute start-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground pointer-events-none"
+          aria-hidden
+        />
+        <Input
+          type="search"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="ابحث بعنوان العمل أو المؤلف…"
+          className="h-11 sm:h-12 w-full rounded-xl border-border/70 bg-[#191C25] pe-10 ps-10 text-sm text-foreground placeholder:text-muted-foreground focus-visible:ring-primary shadow-sm"
+          aria-label="البحث في المكتبة"
+        />
+        {value ? (
+          <button
+            type="button"
+            onClick={() => {
+              setValue("");
+              updateParam({ q: null });
+            }}
+            className="absolute end-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label="مسح نص البحث"
+          >
+            <X className="size-4" />
+          </button>
+        ) : null}
+      </div>
+    </form>
+  );
+}
+
+/**
+ * Desktop Sidebar Filters (matches explore-concept.png right panel)
+ */
+export function ExploreDesktopSidebar() {
+  const { category, genre, status, updateParam, clearAll, hasAnyFilter } = useExploreFilters();
+
+  return (
+    <aside
+      className="hidden lg:block w-64 shrink-0 space-y-6 rounded-2xl border border-border/70 bg-[#191C25] p-5 shadow-sm"
+      aria-label="مرشحات الاستكشاف"
+    >
+      <div className="flex items-center justify-between pb-3 border-b border-border/60">
+        <div className="flex items-center gap-2 font-bold text-foreground">
+          <SlidersHorizontal className="size-4 text-primary" aria-hidden />
+          <span>المرشحات</span>
         </div>
-      </form>
+        {hasAnyFilter && (
+          <button
+            type="button"
+            onClick={clearAll}
+            className="text-xs text-muted-foreground hover:text-primary transition flex items-center gap-1"
+          >
+            <RotateCcw className="size-3" />
+            <span>مسح</span>
+          </button>
+        )}
+      </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Select value={params.get("format") ?? "all"} onValueChange={(v) => update({ format: v === "all" ? null : v })}>
-          <SelectTrigger size="sm" className="w-[130px] bg-card" aria-label="نوع المحتوى">
-            <SelectValue placeholder="النوع" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">كل الأنواع</SelectItem>
-            {FORMATS.map((f) => (
-              <SelectItem key={f} value={f}>{FORMAT_LABELS[f]}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={params.get("status") ?? "all"} onValueChange={(v) => update({ status: v === "all" ? null : v })}>
-          <SelectTrigger size="sm" className="w-[140px] bg-card" aria-label="حالة العمل">
-            <SelectValue placeholder="الحالة" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">كل الحالات</SelectItem>
-            {SERIES_STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={params.get("genre") ?? "all"} onValueChange={(v) => update({ genre: v === "all" ? null : v })}>
-          <SelectTrigger size="sm" className="w-[150px] bg-card" aria-label="التصنيف">
-            <SelectValue placeholder="التصنيف" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">كل التصنيفات</SelectItem>
-            {GENRES.map((g) => (
-              <SelectItem key={g} value={g}>{g}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <div className="ms-auto flex items-center gap-2">
-          <span className="hidden items-center gap-1.5 text-xs text-muted-foreground sm:flex">
-            <SlidersHorizontal className="size-3.5" aria-hidden />
-            {pending ? "جارٍ التحديث…" : `${resultCount} عمل`}
-          </span>
-          <Select value={params.get("sort") ?? "popular"} onValueChange={(v) => update({ sort: v })}>
-            <SelectTrigger size="sm" className="w-[130px] bg-card" aria-label="الترتيب">
-              <SelectValue placeholder="الترتيب" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="popular">الأكثر رواجًا</SelectItem>
-              <SelectItem value="newest">الأحدث تحديثًا</SelectItem>
-              <SelectItem value="rating">الأعلى تقييمًا</SelectItem>
-            </SelectContent>
-          </Select>
-          {hasFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-muted-foreground"
-              onClick={() => {
-                setQ("");
-                startTransition(() => router.replace("/explore", { scroll: false }));
-              }}
+      {/* 1. Category */}
+      <div className="space-y-2.5">
+        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+          تصنيف العمل
+        </h3>
+        <div className="space-y-1">
+          <button
+            type="button"
+            aria-pressed={!category}
+            onClick={() => updateParam({ category: null })}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
+              !category
+                ? "bg-primary/20 text-primary border border-primary/40 font-bold"
+                : "text-foreground hover:bg-accent/60"
+            }`}
+          >
+            <span>الكل</span>
+            {!category && <Check className="size-3.5" />}
+          </button>
+          {CATEGORIES.map((c) => (
+            <button
+              key={c}
+              type="button"
+              aria-pressed={category === c}
+              onClick={() => updateParam({ category: category === c ? null : c })}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
+                category === c
+                  ? "bg-primary/20 text-primary border border-primary/40 font-bold"
+                  : "text-foreground hover:bg-accent/60"
+              }`}
             >
-              مسح الكل
-            </Button>
-          )}
+              <span>{CATEGORY_LABELS[c]}</span>
+              {category === c && <Check className="size-3.5" />}
+            </button>
+          ))}
         </div>
       </div>
+
+      {/* 2. Genre */}
+      <div className="space-y-2.5">
+        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+          النوع القصصي
+        </h3>
+        <div className="space-y-1 max-h-56 overflow-y-auto scrollbar-elegant pe-1">
+          <button
+            type="button"
+            onClick={() => updateParam({ genre: null })}
+            className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+              !genre
+                ? "bg-primary/20 text-primary border border-primary/40 font-bold"
+                : "text-foreground hover:bg-accent/60"
+            }`}
+          >
+            <span>كل الأنواع</span>
+            {!genre && <Check className="size-3.5" />}
+          </button>
+          {GENRES.map((g) => (
+            <button
+              key={g}
+              type="button"
+              aria-pressed={genre === g}
+                  onClick={() => updateParam({ genre: genre === g ? null : g })}
+              className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                genre === g
+                  ? "bg-primary/20 text-primary border border-primary/40 font-bold"
+                  : "text-foreground hover:bg-accent/60"
+              }`}
+            >
+              <span>{g}</span>
+              {genre === g && <Check className="size-3.5" />}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 3. Status */}
+      <div className="space-y-2.5">
+        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+          حالة العمل
+        </h3>
+        <div className="space-y-1">
+          <button
+            type="button"
+            onClick={() => updateParam({ status: null })}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
+              !status
+                ? "bg-primary/20 text-primary border border-primary/40 font-bold"
+                : "text-foreground hover:bg-accent/60"
+            }`}
+          >
+            <span>الكل</span>
+            {!status && <Check className="size-3.5" />}
+          </button>
+          {SERIES_STATUSES.map((st) => (
+            <button
+              key={st}
+              type="button"
+              aria-pressed={status === st}
+                  onClick={() => updateParam({ status: status === st ? null : st })}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition ${
+                status === st
+                  ? "bg-primary/20 text-primary border border-primary/40 font-bold"
+                  : "text-foreground hover:bg-accent/60"
+              }`}
+            >
+              <span>{STATUS_LABELS[st]}</span>
+              {status === st && <Check className="size-3.5" />}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Reset button at bottom of sidebar */}
+      {hasAnyFilter && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={clearAll}
+          className="w-full gap-2 border-border/80 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <RotateCcw className="size-3.5" />
+          <span>مسح المرشحات</span>
+        </Button>
+      )}
+    </aside>
+  );
+}
+
+/**
+ * Mobile Category Pills (quick one-tap classification switch)
+ */
+export function ExploreMobileCategoryTabs() {
+  const { category, updateParam } = useExploreFilters();
+
+  return (
+    <div className="flex lg:hidden items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none" role="group" aria-label="تصنيفات الأعمال">
+      <button
+        type="button"
+        aria-pressed={!category}
+        onClick={() => updateParam({ category: null })}
+        className={`shrink-0 rounded-xl px-4 py-2 text-xs font-bold transition ${
+          !category
+            ? "bg-primary text-primary-foreground shadow-sm"
+            : "border border-border/70 bg-[#191C25] text-foreground hover:bg-accent/70"
+        }`}
+      >
+        الكل
+      </button>
+      {CATEGORIES.map((c) => {
+        const active = category === c;
+        return (
+          <button
+            key={c}
+            type="button"
+            aria-pressed={active}
+            onClick={() => updateParam({ category: active ? null : c })}
+            className={`shrink-0 rounded-xl px-4 py-2 text-xs font-bold transition ${
+              active
+                ? "bg-primary text-primary-foreground shadow-sm"
+                : "border border-border/70 bg-[#191C25] text-foreground hover:bg-accent/70"
+            }`}
+          >
+            {CATEGORY_LABELS[c]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Mobile Filter Sheet (accessible drawer with explicit close and focus management)
+ */
+export function ExploreMobileFilterSheet() {
+  const {
+    category,
+    genre,
+    status,
+    activeFilterCount,
+    updateParam,
+    clearAll,
+  } = useExploreFilters();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className={`lg:hidden gap-2 rounded-xl border-border/70 bg-[#191C25] text-xs font-bold ${
+            activeFilterCount > 0 ? "border-primary/60 text-primary" : "text-foreground"
+          }`}
+          aria-label={`فتح المرشحات (${activeFilterCount} نشط)`}
+        >
+          <SlidersHorizontal className="size-3.5 text-primary" aria-hidden />
+          <span>المرشحات</span>
+          {activeFilterCount > 0 && (
+            <span className="grid size-4 place-items-center rounded-full bg-primary text-[10px] text-primary-foreground">
+              {activeFilterCount}
+            </span>
+          )}
+        </Button>
+      </SheetTrigger>
+
+      <SheetContent side="right" className="w-[300px] sm:w-[360px] bg-[#191C25] border-border/70 p-6 overflow-y-auto">
+        <SheetHeader className="p-0 pb-4 border-b border-border/60">
+          <SheetTitle className="text-base font-bold text-foreground flex items-center justify-between">
+            <span>مرشحات البحث</span>
+          </SheetTitle>
+        </SheetHeader>
+
+        <div className="space-y-6 py-4">
+          {/* Category */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-bold text-muted-foreground uppercase">تصنيف العمل</h4>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => updateParam({ category: null })}
+                className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                  !category ? "bg-primary text-primary-foreground font-bold" : "bg-card text-foreground border border-border/60"
+                }`}
+              >
+                الكل
+              </button>
+              {CATEGORIES.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-pressed={category === c}
+              onClick={() => updateParam({ category: category === c ? null : c })}
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                    category === c
+                      ? "bg-primary text-primary-foreground font-bold"
+                      : "bg-card text-foreground border border-border/60"
+                  }`}
+                >
+                  {CATEGORY_LABELS[c]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Genre */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-bold text-muted-foreground uppercase">النوع القصصي</h4>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => updateParam({ genre: null })}
+                className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                  !genre ? "bg-primary text-primary-foreground font-bold" : "bg-card text-foreground border border-border/60"
+                }`}
+              >
+                الكل
+              </button>
+              {GENRES.map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  aria-pressed={genre === g}
+                  onClick={() => updateParam({ genre: genre === g ? null : g })}
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                    genre === g
+                      ? "bg-primary text-primary-foreground font-bold"
+                      : "bg-card text-foreground border border-border/60"
+                  }`}
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Status */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-bold text-muted-foreground uppercase">حالة العمل</h4>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => updateParam({ status: null })}
+                className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                  !status ? "bg-primary text-primary-foreground font-bold" : "bg-card text-foreground border border-border/60"
+                }`}
+              >
+                الكل
+              </button>
+              {SERIES_STATUSES.map((st) => (
+                <button
+                  key={st}
+                  type="button"
+                  aria-pressed={status === st}
+                  onClick={() => updateParam({ status: status === st ? null : st })}
+                  className={`rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+                    status === st
+                      ? "bg-primary text-primary-foreground font-bold"
+                      : "bg-card text-foreground border border-border/60"
+                  }`}
+                >
+                  {STATUS_LABELS[st]}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-center gap-2 pt-4 border-t border-border/60">
+          <SheetClose asChild>
+            <Button className="flex-1 bg-primary text-primary-foreground font-bold text-xs">
+              عرض النتائج
+            </Button>
+          </SheetClose>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={clearAll}
+            className="text-xs border-border/70 text-muted-foreground"
+          >
+            مسح المرشحات
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+/**
+ * Sort Dropdown Selector
+ */
+export function ExploreSortSelector() {
+  const { sort, updateParam } = useExploreFilters();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-2 rounded-xl border-border/70 bg-[#191C25] text-xs font-semibold text-foreground hover:border-primary/50"
+          aria-label="خيارات الترتيب"
+        >
+          <ArrowUpDown className="size-3.5 text-muted-foreground" aria-hidden />
+          <span>{SORT_LABELS[sort] || "الترتيب"}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-40 bg-[#191C25] border-border/70">
+        <DropdownMenuItem
+          onClick={() => updateParam({ sort: "popular" })}
+          className={`cursor-pointer text-xs ${sort === "popular" ? "text-primary font-bold" : ""}`}
+        >
+          {SORT_LABELS.popular}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => updateParam({ sort: "newest" })}
+          className={`cursor-pointer text-xs ${sort === "newest" ? "text-primary font-bold" : ""}`}
+        >
+          {SORT_LABELS.newest}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => updateParam({ sort: "rating" })}
+          className={`cursor-pointer text-xs ${sort === "rating" ? "text-primary font-bold" : ""}`}
+        >
+          {SORT_LABELS.rating}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/**
+ * Removable Active Filter Chips & Clear All
+ */
+export function ExploreActiveChips({ resultCount }: { resultCount: number }) {
+  const { q, category, format, genre, status, updateParam, clearAll, hasAnyFilter } = useExploreFilters();
+
+  if (!hasAnyFilter) {
+    return (
+      <div className="hidden lg:flex items-center justify-between text-xs text-muted-foreground py-1">
+        <span>{resultCount} عملاً</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 py-1 text-xs">
+      <span className="hidden lg:inline font-semibold text-muted-foreground">{resultCount} عملاً</span>
+      {format && isFormat(format) && <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-accent px-2.5 py-1">
+        {FORMAT_LABELS[format]}
+        <button type="button" onClick={() => updateParam({ format: null })} aria-label="إزالة مرشح طريقة القراءة"><X className="size-3" /></button>
+      </span>}
+
+      {q && (
+        <span className="inline-flex items-center gap-1 rounded-lg border border-border/80 bg-accent/60 px-2.5 py-1 text-foreground">
+          <span>«{q}»</span>
+          <button
+            type="button"
+            onClick={() => updateParam({ q: null })}
+            className="text-muted-foreground hover:text-foreground"
+            aria-label="إزالة نص البحث"
+          >
+            <X className="size-3" />
+          </button>
+        </span>
+      )}
+
+      {category && (
+        <span className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/15 px-2.5 py-1 text-primary font-medium">
+          <span>{CATEGORY_LABELS[category as Category] || category}</span>
+          <button
+            type="button"
+            aria-pressed={!category}
+            onClick={() => updateParam({ category: null })}
+            className="hover:text-foreground"
+            aria-label="إزالة مرشح التصنيف"
+          >
+            <X className="size-3" />
+          </button>
+        </span>
+      )}
+
+      {genre && (
+        <span className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/15 px-2.5 py-1 text-primary font-medium">
+          <span>{genre}</span>
+          <button
+            type="button"
+            onClick={() => updateParam({ genre: null })}
+            className="hover:text-foreground"
+            aria-label="إزالة مرشح النوع"
+          >
+            <X className="size-3" />
+          </button>
+        </span>
+      )}
+
+      {status && (
+        <span className="inline-flex items-center gap-1 rounded-lg border border-border/80 bg-accent/60 px-2.5 py-1 text-foreground font-medium">
+          <span>{STATUS_LABELS[status as SeriesStatus] || status}</span>
+          <button
+            type="button"
+            onClick={() => updateParam({ status: null })}
+            className="text-muted-foreground hover:text-foreground"
+            aria-label="إزالة مرشح الحالة"
+          >
+            <X className="size-3" />
+          </button>
+        </span>
+      )}
+
+      <button
+        type="button"
+        onClick={clearAll}
+        className="text-[11px] font-semibold text-primary/90 underline-offset-4 hover:underline ms-1"
+      >
+        مسح المرشحات
+      </button>
     </div>
   );
 }

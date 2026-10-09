@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { updateChapterMeta, upsertSeries, createChapter } from "@/lib/actions";
-import { FORMATS, FORMAT_LABELS, GENRES, SERIES_STATUSES, STATUS_LABELS, WORKFLOWS, WORKFLOW_LABELS, type Format } from "@/lib/constants";
+import { CATEGORIES, CATEGORY_LABELS, FORMATS, FORMAT_LABELS, GENRES, SERIES_STATUSES, STATUS_LABELS, WORKFLOWS, WORKFLOW_LABELS, type Category, type Format } from "@/lib/constants";
 
 export function AdminLogoutButton({ compact = false }: { compact?: boolean }) {
   return (
@@ -82,6 +82,7 @@ type SeriesFormValues = {
   titleOriginal: string;
   slug: string;
   synopsisAr: string;
+  category?: Category | null;
   format: Format;
   status: "ongoing" | "completed" | "hiatus";
   author: string;
@@ -99,6 +100,7 @@ export function SeriesForm({ initial }: { initial?: SeriesFormValues }) {
       titleOriginal: "",
       slug: "",
       synopsisAr: "",
+      category: null,
       format: "manga",
       status: "ongoing",
       author: "",
@@ -149,13 +151,28 @@ export function SeriesForm({ initial }: { initial?: SeriesFormValues }) {
           <p className="text-[11px] text-muted-foreground">أحرف لاتينية صغيرة وأرقام وشرطات — لا يمكن تعديله لاحقًا.</p>
         </div>
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">الصيغة *</label>
+          <label className="text-sm font-medium">تصنيف المحتوى *</label>
+          <Select
+            value={values.category ?? (initial ? "none" : "")}
+            onValueChange={(v) => set("category", v === "none" ? null : (v as Category))}
+          >
+            <SelectTrigger className={field}><SelectValue placeholder="اختر تصنيف العمل" /></SelectTrigger>
+            <SelectContent>
+              {initial && <SelectItem value="none">غير مصنّف</SelectItem>}
+              {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{CATEGORY_LABELS[c]}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <p className="text-[11px] text-muted-foreground">فئة وهوية المحتوى (مانجا، مانهوا، روايات، كوميك).</p>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">طريقة القراءة (الصيغة) *</label>
           <Select value={values.format} onValueChange={(v) => set("format", v as SeriesFormValues["format"])}>
             <SelectTrigger className={field}><SelectValue /></SelectTrigger>
             <SelectContent>
               {FORMATS.map((f) => <SelectItem key={f} value={f}>{FORMAT_LABELS[f]}</SelectItem>)}
             </SelectContent>
           </Select>
+          <p className="text-[11px] text-muted-foreground">أسلوب عرض الصفحات أو التمرير أو النص في القارئ.</p>
         </div>
         <div className="space-y-1.5">
           <label className="text-sm font-medium">حالة النشر *</label>

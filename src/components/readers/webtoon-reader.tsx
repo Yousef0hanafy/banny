@@ -3,14 +3,12 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
-import { ReaderChrome, ChapterEndCard, LockedChapterPanel } from "@/components/readers/reader-chrome";
+import { ReaderChrome, ChapterEndCard, LockedChapterPanel, ReaderFloatingBar } from "@/components/readers/reader-chrome";
 import { CommentsSection } from "@/components/community/comments-section";
 import { saveReadingProgress } from "@/lib/actions";
 import { readChapterLocal, writeLocal } from "@/lib/progress-local";
 import { restoreReaderScroll, selectReaderProgress, type ReaderProgress } from "@/lib/reader-progress";
 import type { CommentView } from "@/lib/queries";
-
-// Chapter comments are optional (Release E) — server passes them when present.
 
 type Panel = { id: string; pageIndex: number; imagePath: string; width: number; height: number };
 
@@ -89,7 +87,7 @@ export function WebtoonReader({
   useEffect(() => {
     if (restored || isPremiumDemo || !panels.length) return;
     const progress = selectReaderProgress(readChapterLocal(seriesSlug, chapterNumber, "webtoon"), initialProgress);
-    return restoreReaderScroll(progress?.percent ?? 0, actual => {
+    return restoreReaderScroll(progress?.percent ?? 0, (actual) => {
       setPercent(actual);
       actualPercent.current = actual;
       setRestored(true);
@@ -98,14 +96,19 @@ export function WebtoonReader({
 
   useEffect(() => {
     if (!restored || status === "loading" || mirrorInitialized.current || isPremiumDemo || !panels.length) return;
-    // The reader may have moved while the session was loading. Mirror that
-    // position once, without restoring again when authentication resolves.
     mirrorInitialized.current = true;
     lastSaved.current = Date.now();
     writeLocal({
-      seriesSlug, seriesTitle, chapterNumber, chapterTitle,
-      pageIndex: 0, percent: actualPercent.current || 1, total: panels.length,
-      format: "webtoon", coverPath: "", accent: "",
+      seriesSlug,
+      seriesTitle,
+      chapterNumber,
+      chapterTitle,
+      pageIndex: 0,
+      percent: actualPercent.current || 1,
+      total: panels.length,
+      format: "webtoon",
+      coverPath: "",
+      accent: "",
     });
   }, [chapterNumber, chapterTitle, isPremiumDemo, panels.length, restored, seriesSlug, seriesTitle, status]);
 
@@ -126,7 +129,8 @@ export function WebtoonReader({
         onToggleImmersive={() => setImmersive((v) => !v)}
       />
 
-      <main className="pt-14" aria-label="لوحات الفصل">
+      {/* Content starts early (pt-14), generous bottom padding (pb-32) prevents fixed toolbar from covering bottom content */}
+      <main className="pt-13 sm:pt-14 pb-32" aria-label="لوحات الفصل">
         <div className="mx-auto max-w-2xl">
           {panels.map((p) => (
             <div key={p.id} className="relative w-full" style={{ aspectRatio: `${p.width}/${p.height}` }}>
@@ -141,6 +145,7 @@ export function WebtoonReader({
             </div>
           ))}
         </div>
+
         <ChapterEndCard
           seriesSlug={seriesSlug}
           format="webtoon"
@@ -150,8 +155,8 @@ export function WebtoonReader({
           chapterNumber={chapterNumber}
         />
 
-        {/* Chapter comments (Release E) — inline at the end of the vertical scroll */}
-        <section className="mx-auto max-w-2xl px-4 pb-14">
+        {/* Chapter comments — inline at the end of the vertical scroll */}
+        <section className="mx-auto max-w-2xl px-4 pb-12">
           <CommentsSection
             seriesSlug={seriesSlug}
             seriesTitle={seriesTitle}
@@ -160,6 +165,17 @@ export function WebtoonReader({
           />
         </section>
       </main>
+
+      {/* Floating navigation bar */}
+      <ReaderFloatingBar
+        seriesSlug={seriesSlug}
+        chapterNumber={chapterNumber}
+        format="webtoon"
+        percent={percent}
+        prev={prev}
+        next={next}
+        immersive={immersive}
+      />
     </div>
   );
 }

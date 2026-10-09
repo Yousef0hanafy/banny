@@ -154,6 +154,7 @@ export default async function AdminSeriesDetailPage({
                 titleOriginal: s.titleOriginal ?? "",
                 slug: s.slug,
                 synopsisAr: s.synopsisAr,
+                category: s.category,
                 format: s.format as Format,
                 status: s.status as SeriesStatus,
                 author: s.author,

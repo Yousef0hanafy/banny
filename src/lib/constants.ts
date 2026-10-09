@@ -15,6 +15,21 @@ export const ROLE_LABELS: Record<Role, string> = {
   admin: "مدير",
 };
 
+export const CATEGORIES = ["manga", "manhwa", "novel", "comic"] as const;
+export type Category = (typeof CATEGORIES)[number];
+export const CATEGORY_LABELS: Record<Category, string> = {
+  manga: "مانجا",
+  manhwa: "مانهوا",
+  novel: "روايات",
+  comic: "كوميك",
+};
+export const CATEGORY_DESCRIPTIONS: Record<Category, string> = {
+  manga: "عالم القصص المصورة",
+  manhwa: "حكايات آسرة جديدة",
+  novel: "عوالم من الكلمات",
+  comic: "قصص مصورة وعوالم متنوعة",
+};
+
 export const FORMATS = ["manga", "webtoon", "novel"] as const;
 export type Format = (typeof FORMATS)[number];
 export const FORMAT_LABELS: Record<Format, string> = {
@@ -83,6 +98,9 @@ export const COMMENT_STATUS_LABELS: Record<CommentStatus, string> = {
 
 export function isRole(v: unknown): v is Role {
   return typeof v === "string" && (ROLES as readonly string[]).includes(v);
+}
+export function isCategory(v: unknown): v is Category {
+  return typeof v === "string" && (CATEGORIES as readonly string[]).includes(v);
 }
 export function isFormat(v: unknown): v is Format {
   return typeof v === "string" && (FORMATS as readonly string[]).includes(v);

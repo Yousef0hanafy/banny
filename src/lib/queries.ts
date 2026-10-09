@@ -3,9 +3,9 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { FORMATS } from "@/lib/constants";
+import { CATEGORIES, FORMATS } from "@/lib/constants";
 import { scoreDocument, suggestTitle, tokenizeArabic } from "@/lib/arabic-search";
-import type { CommentStatus, Format, Role, SeriesStatus, Workflow } from "@/lib/constants";
+import type { Category, CommentStatus, Format, Role, SeriesStatus, Workflow } from "@/lib/constants";
 import { isStaffRole } from "@/lib/team-access";
 
 /* ------------------------------------------------------------------ */
@@ -60,6 +60,7 @@ export type SeriesCard = {
   slug: string;
   titleAr: string;
   format: Format;
+  category?: Category | null;
   status: SeriesStatus;
   genres: string[];
   author: string;
@@ -74,6 +75,7 @@ export type SeriesCard = {
 
 export type ExploreFilters = {
   q?: string;
+  category?: string;
   format?: string;
   genre?: string;
   status?: string;
@@ -85,6 +87,7 @@ export function toCard(s: {
   slug: string;
   titleAr: string;
   format: string;
+  category?: string | null;
   status: string;
   genresJson: string;
   author: string;
@@ -105,6 +108,7 @@ export function toCard(s: {
     slug: s.slug,
     titleAr: s.titleAr,
     format: s.format as Format,
+    category: (s.category ?? null) as Category | null,
     status: s.status as SeriesStatus,
     genres: parseJsonArray(s.genresJson),
     author: s.author,
@@ -139,8 +143,8 @@ export function liveChapterWhere() {
 }
 
 export async function getPublishedSeries(filters: ExploreFilters): Promise<SeriesCard[]> {
-  const where: Record<string, unknown> = {};
-  // A-scope: every series in the demo is public; the published-only filter applies to chapters.
+  const where: Record<string, unknown> = { chapters: { some: liveChapterWhere() } };
+  if (filters.category && (CATEGORIES as readonly string[]).includes(filters.category)) where.category = filters.category;
   if (filters.format && (FORMATS as readonly string[]).includes(filters.format)) where.format = filters.format;
   if (filters.status && ["ongoing", "completed", "hiatus"].includes(filters.status))
     where.status = filters.status;
@@ -198,22 +202,22 @@ export async function getPublishedSeries(filters: ExploreFilters): Promise<Serie
  */
 export async function getSearchSuggestion(q: string): Promise<string | null> {
   if (!q.trim()) return null;
-  const rows = await db.series.findMany({ select: { titleAr: true } });
+  const rows = await db.series.findMany({ where: { chapters: { some: liveChapterWhere() } }, select: { titleAr: true } });
   return suggestTitle(q, rows.map((r) => r.titleAr));
 }
 
 export async function getTrendingSeries(limit = 8): Promise<SeriesCard[]> {
-  const rows = await db.series.findMany({ include: cardInclude, orderBy: { reads: "desc" }, take: limit });
+  const rows = await db.series.findMany({ where: { chapters: { some: liveChapterWhere() } }, include: cardInclude, orderBy: { reads: "desc" }, take: limit });
   return rows.map(toCard);
 }
 
 export async function getNewestSeries(limit = 8): Promise<SeriesCard[]> {
-  const rows = await db.series.findMany({ include: cardInclude, orderBy: { createdAt: "desc" }, take: limit });
+  const rows = await db.series.findMany({ where: { chapters: { some: liveChapterWhere() } }, include: cardInclude, orderBy: { createdAt: "desc" }, take: limit });
   return rows.map(toCard);
 }
 
 export async function getGenreCounts(): Promise<{ genre: string; count: number }[]> {
-  const rows = await db.series.findMany({ select: { genresJson: true } });
+  const rows = await db.series.findMany({ where: { chapters: { some: liveChapterWhere() } }, select: { genresJson: true } });
   const counts = new Map<string, number>();
   for (const r of rows)
     for (const g of parseJsonArray(r.genresJson)) counts.set(g, (counts.get(g) ?? 0) + 1);
@@ -248,7 +252,7 @@ export async function getSeriesBySlug(slug: string) {
       },
     },
   });
-  if (!s) return null;
+  if (!s || s.chapters.length === 0) return null;
   const now = new Date();
   const mapChapter = (c: (typeof s.chapters)[number]): ChapterListItem => ({
     id: c.id,
@@ -271,7 +275,7 @@ export async function getSeriesBySlug(slug: string) {
 
 export async function getRelatedSeries(seriesId: string, genres: string[], limit = 6) {
   const rows = await db.series.findMany({
-    where: { id: { not: seriesId } },
+    where: { id: { not: seriesId }, chapters: { some: liveChapterWhere() } },
     include: cardInclude,
     take: 24,
   });
@@ -349,7 +353,7 @@ export type ContinueReadingItem = {
 
 export async function getContinueReading(profileId: string, limit = 3): Promise<ContinueReadingItem[]> {
   const rows = await db.readingProgress.findMany({
-    where: { profileId, completed: false },
+    where: { profileId, completed: false, percent: { gt: 0, lt: 100 }, chapter: { ...liveChapterWhere(), isPremiumDemo: false } },
     orderBy: { updatedAt: "desc" },
     take: limit,
     include: {
@@ -379,7 +383,7 @@ export async function getLatestUpdates(limit = 10) {
     where: liveChapterWhere(),
     orderBy: [{ publishedAt: "desc" }],
     take: limit,
-    include: { series: { select: { slug: true, titleAr: true, coverPath: true, accent: true, format: true } } },
+    include: { series: { select: { slug: true, titleAr: true, coverPath: true, accent: true, format: true, category: true } } },
   });
   return chapters.map((c) => ({
     id: c.id,

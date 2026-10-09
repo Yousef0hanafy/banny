@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { BookOpenText, BookMarked, Compass, Library, Search, Menu, LogOut, ShieldCheck, UserRound, PenTool } from "lucide-react";
+import { BookOpenText, BookMarked, Compass, Library, Search, LogOut, ShieldCheck, UserRound, PenTool } from "lucide-react";
 import { BrandMark } from "@/components/library/brand-mark";
 import { NotificationBell } from "@/components/library/notification-bell";
 import { Button } from "@/components/ui/button";
@@ -69,30 +69,79 @@ export function SiteHeader() {
   const isStaff = currentRole === "admin" || currentRole === "editor" || currentRole === "contributor";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
         <Logo />
 
         <nav className="mx-4 hidden items-center gap-1 md:flex" aria-label="التنقل الرئيسي">
-          <Button asChild variant="ghost" size="sm" className={pathname === "/" ? "text-foreground bg-accent" : "text-muted-foreground"}>
-            <Link href="/">الرئيسية</Link>
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className={pathname === "/" ? "text-foreground bg-accent" : "text-muted-foreground hover:text-foreground"}
+          >
+            <Link href="/" className="flex items-center gap-1.5">
+              <BookOpenText className="size-4" aria-hidden />
+              <span>الرئيسية</span>
+            </Link>
           </Button>
-          <Button asChild variant="ghost" size="sm" className={pathname === "/explore" ? "text-foreground bg-accent" : "text-muted-foreground"}>
-            <Link href="/explore">استكشف</Link>
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className={pathname === "/explore" ? "text-foreground bg-accent" : "text-muted-foreground hover:text-foreground"}
+          >
+            <Link href="/explore" className="flex items-center gap-1.5">
+              <Compass className="size-4" aria-hidden />
+              <span>استكشف</span>
+            </Link>
           </Button>
-          <Button asChild variant="ghost" size="sm" className={pathname === "/library" ? "text-foreground bg-accent" : "text-muted-foreground"}>
-            <Link href="/library">المكتبة</Link>
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className={pathname === "/library" ? "text-foreground bg-accent" : "text-muted-foreground hover:text-foreground"}
+          >
+            <Link href="/library" className="flex items-center gap-1.5">
+              <Library className="size-4" aria-hidden />
+              <span>مكتبتي</span>
+            </Link>
           </Button>
-          <Button asChild variant="ghost" size="sm" className={pathname === "/updates" ? "text-foreground bg-accent" : "text-muted-foreground"}>
-            <Link href="/updates">التحديثات</Link>
+          <Button
+            asChild
+            variant="ghost"
+            size="sm"
+            className={pathname === "/updates" ? "text-foreground bg-accent" : "text-muted-foreground hover:text-foreground"}
+          >
+            <Link href="/updates" className="flex items-center gap-1.5">
+              <BookMarked className="size-4" aria-hidden />
+              <span>التحديثات</span>
+            </Link>
           </Button>
         </nav>
 
         <div className="ms-auto flex items-center gap-2">
-          <Button asChild variant="outline" size="sm" className="gap-2 border-border text-muted-foreground hover:text-foreground">
-            <Link href="/explore">
+          {/* Desktop prominent search */}
+          <form
+            action="/explore"
+            method="GET"
+            className="relative hidden md:block w-52 lg:w-64"
+            role="search"
+          >
+            <Search className="absolute start-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground pointer-events-none" aria-hidden />
+            <input
+              type="search"
+              name="q"
+              placeholder="ابحث عن أعمال أو مؤلفين…"
+              className="h-9 w-full rounded-xl border border-border/70 bg-card/90 pe-3 ps-8 text-xs text-foreground placeholder:text-muted-foreground transition hover:border-border focus:border-primary/60 focus:bg-card focus:outline-none focus:ring-1 focus:ring-primary/60"
+              aria-label="ابحث في المكتبة"
+            />
+          </form>
+
+          {/* Mobile search icon */}
+          <Button asChild variant="ghost" size="icon" className="size-9 text-muted-foreground hover:text-foreground md:hidden">
+            <Link href="/explore" aria-label="ابحث في المكتبة">
               <Search className="size-4" aria-hidden />
-              <span className="hidden sm:inline">ابحث في المكتبة</span>
             </Link>
           </Button>
 
@@ -103,7 +152,10 @@ export function SiteHeader() {
           ) : session ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="قائمة الحساب">
+                <button
+                  className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label="قائمة الحساب"
+                >
                   <Avatar className="size-9 border border-border">
                     <AvatarFallback className="bg-primary/20 text-primary text-sm font-semibold">
                       {(session.user?.name ?? "؟").slice(0, 1)}
@@ -164,7 +216,7 @@ export function BottomNav() {
     { href: "/explore", label: "استكشف", icon: Compass },
     { href: "/library", label: "المكتبة", icon: Library },
     { href: "/updates", label: "التحديثات", icon: BookMarked },
-    { href: status ? "/profile" : "/login", label: status ? "حسابي" : "دخول", icon: UserRound },
+    { href: status === "authenticated" ? "/profile" : "/login", label: status === "authenticated" ? "حسابي" : "دخول", icon: UserRound },
   ];
   if (pathname.startsWith("/admin") || pathname.startsWith("/read/")) return null;
   return (
@@ -179,8 +231,8 @@ export function BottomNav() {
             <Link
               key={it.label}
               href={it.href}
-              className={`flex h-14 flex-col items-center justify-center gap-1 text-[11px] ${
-                active ? "text-primary" : "text-muted-foreground"
+              className={`flex h-14 flex-col items-center justify-center gap-1 text-[11px] font-medium transition ${
+                active ? "text-primary" : "text-muted-foreground hover:text-foreground"
               }`}
             >
               <it.icon className="size-5" aria-hidden />

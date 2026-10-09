@@ -80,9 +80,12 @@ export function MangaReader({
     [next, prev, seriesSlug, total, restored, isPremiumDemo]
   );
 
-  // keyboard navigation — RTL-aware: "next" advances with Left arrow in RTL mode
+  // Keyboard navigation — RTL-aware: "next" advances with Left arrow in RTL mode
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const target = e.target;
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey ||
+        (target instanceof HTMLElement && (target.closest("input, textarea, select, [contenteditable]")))) return;
       if (e.key === "ArrowLeft") go(direction === "rtl" ? 1 : -1);
       if (e.key === "ArrowRight") go(direction === "rtl" ? -1 : 1);
       if (e.key === "f") setImmersive((v) => !v);
@@ -91,7 +94,7 @@ export function MangaReader({
     return () => window.removeEventListener("keydown", onKey);
   }, [direction, go]);
 
-  // persist progress
+  // Persist progress
   useEffect(() => {
     if (!restored || status === "loading" || isPremiumDemo || !total) return;
     if (lastSaved.current === index) return;
@@ -146,7 +149,7 @@ export function MangaReader({
         }
       />
 
-      <main className="flex min-h-screen flex-col items-center justify-center px-2 pb-40 pt-16 sm:px-6 sm:pb-28" aria-label="صفحات الفصل">
+      <main className="flex min-h-screen flex-col items-center justify-center px-2 pb-40 pt-14 sm:px-6 sm:pb-28" aria-label="صفحات الفصل">
         {page && (
           <div
             className="relative w-full max-w-[560px] cursor-pointer select-none overflow-hidden rounded-xl border border-border/60 shadow-2xl"
@@ -168,17 +171,17 @@ export function MangaReader({
                 priority={index === 0}
               />
             </div>
-            {/* tap zones hint (subtle) */}
+            {/* Subtle tap zones hint */}
             <div className="pointer-events-none absolute inset-y-0 start-0 w-1/2 opacity-0 transition hover:opacity-100">
               <div className="flex h-full items-center justify-start ps-3">
-                <span className="grid size-9 place-items-center rounded-full bg-background/70 text-foreground backdrop-blur">
+                <span className="grid size-9 place-items-center rounded-full bg-background/80 text-foreground backdrop-blur">
                   {direction === "rtl" ? <ChevronLeft className="size-5" /> : <ChevronRight className="size-5" />}
                 </span>
               </div>
             </div>
             <div className="pointer-events-none absolute inset-y-0 end-0 w-1/2 opacity-0 transition hover:opacity-100">
               <div className="flex h-full items-center justify-end pe-3">
-                <span className="grid size-9 place-items-center rounded-full bg-background/70 text-foreground backdrop-blur">
+                <span className="grid size-9 place-items-center rounded-full bg-background/80 text-foreground backdrop-blur">
                   {direction === "rtl" ? <ChevronRight className="size-5" /> : <ChevronLeft className="size-5" />}
                 </span>
               </div>
@@ -186,13 +189,13 @@ export function MangaReader({
           </div>
         )}
 
-        {/* Reader toolbar */}
-        <div className={`fixed inset-x-0 bottom-0 z-40 border-t border-border/50 bg-background/90 backdrop-blur-md transition-transform duration-300 ${immersive ? "translate-y-full" : ""}`}>
+        {/* Reader toolbar: Charcoal/violet styling, preserving required test structure & accessibility */}
+        <div className={`fixed inset-x-0 bottom-0 z-40 border-t border-border/50 bg-[#101217]/90 backdrop-blur-md transition-transform duration-300 ${immersive ? "translate-y-full" : ""}`}>
           <div className="mx-auto grid max-w-4xl grid-cols-[1fr_auto_1fr] items-center gap-x-2 gap-y-1 px-3 py-2 sm:flex sm:h-16 sm:gap-2 sm:px-4 sm:py-0">
             <Button
               variant="outline"
               size="sm"
-              className="h-11 gap-1.5 border-border sm:h-8"
+              className="h-11 gap-1.5 rounded-xl border-border/70 sm:h-8"
               onClick={() => go(-1)}
               disabled={!restored || (index === 0 && !prev)}
               aria-label="الصفحة السابقة"
@@ -210,7 +213,7 @@ export function MangaReader({
                 disabled={!restored}
                 onChange={(e) => setIndex(Number(e.target.value))}
                 onKeyDown={(e) => e.stopPropagation()}
-                className="h-11 min-w-0 flex-1 accent-[var(--primary)] sm:h-1.5 sm:w-56 sm:max-w-48 sm:flex-none"
+                className="h-11 min-w-0 flex-1 accent-[var(--primary)] sm:h-1.5 sm:w-56 sm:max-w-48 sm:flex-none cursor-pointer"
                 aria-label="التنقل بين الصفحات"
               />
               <span className="min-w-14 text-center text-xs tabular-nums text-muted-foreground">
@@ -221,7 +224,7 @@ export function MangaReader({
             <Button
               variant="outline"
               size="sm"
-              className="h-11 gap-1.5 border-border sm:h-8"
+              className="h-11 gap-1.5 rounded-xl border-border/70 sm:h-8"
               onClick={() => setDirection((d) => (d === "rtl" ? "ltr" : "rtl"))}
               title="تبديل اتجاه القراءة"
               aria-label={`اتجاه القراءة الحالي: ${direction === "rtl" ? "من اليمين لليسار" : "من اليسار لليمين"}. اضغط للتبديل.`}
@@ -233,9 +236,9 @@ export function MangaReader({
             <Button
               variant="outline"
               size="sm"
-              className="h-11 gap-1.5 border-border sm:h-8"
+              className="h-11 gap-1.5 rounded-xl border-border/70 sm:h-8"
               onClick={() => go(1)}
-              disabled={!restored || (index >= total - 1 && !next)}
+              disabled={!restored || (index >= total - 1 && (!next || next.isPremiumDemo))}
               aria-label="الصفحة التالية"
             >
               التالي
@@ -244,7 +247,7 @@ export function MangaReader({
           </div>
         </div>
 
-        {/* end-of-chapter, appears when reaching last page */}
+        {/* End-of-chapter card, appears when reaching last page */}
         {index >= total - 1 && (
           <div className="w-full">
             <ChapterEndCard
