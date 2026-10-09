@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { FORMATS } from "@/lib/constants";
 import { scoreDocument, suggestTitle, tokenizeArabic } from "@/lib/arabic-search";
 import type { CommentStatus, Format, Role, SeriesStatus, Workflow } from "@/lib/constants";
+import { isStaffRole } from "@/lib/team-access";
 
 /* ------------------------------------------------------------------ */
 /* Session / role helpers (application-level authorization — there is   */
@@ -399,6 +400,9 @@ export async function getFeaturedCollections() {
 /* ------------------------------------------------------------------ */
 
 export async function getAdminOverview() {
+  const profile = await currentProfileOrNull();
+  if (!profile || profile.role !== "admin") return null;
+
   const [seriesCount, chapterCount, publishedCount, draftCount, reviewCount, profileCount, eventCount] =
     await Promise.all([
       db.series.count(),
@@ -434,7 +438,13 @@ export async function getAdminOverview() {
 export type AdminSeriesFilters = { q?: string; format?: string; status?: string };
 
 export async function getAdminSeries(filters: AdminSeriesFilters) {
+  const profile = await currentProfileOrNull();
+  if (!profile || !isStaffRole(profile.role)) return [];
+
   const where: Record<string, unknown> = {};
+  if (profile.role !== "admin") {
+    where.assignments = { some: { profileId: profile.id } };
+  }
   if (filters.format && (FORMATS as readonly string[]).includes(filters.format)) where.format = filters.format;
   if (filters.status && ["ongoing", "completed", "hiatus"].includes(filters.status))
     where.status = filters.status;
@@ -447,8 +457,37 @@ export async function getAdminSeries(filters: AdminSeriesFilters) {
 }
 
 export async function getAdminSeriesById(id: string) {
-  return db.series.findUnique({
-    where: { id },
+  const profile = await currentProfileOrNull();
+  if (!profile || !isStaffRole(profile.role)) return null;
+
+  if (profile.role === "admin") {
+    return db.series.findUnique({
+      where: { id },
+      include: {
+        chapters: {
+          orderBy: { number: "asc" },
+          include: { _count: { select: { pages: true } } },
+        },
+        assignments: {
+          include: {
+            profile: { select: { id: true, email: true, nickname: true, role: true } },
+          },
+        },
+      },
+    });
+  }
+
+  // Non-admin staff: combined id + assignment membership, no team assignment or email list
+  return db.series.findFirst({
+    where: {
+      id,
+      assignments: {
+        some: {
+          profileId: profile.id,
+          profile: { role: { in: ["contributor", "editor"] } },
+        },
+      },
+    },
     include: {
       chapters: {
         orderBy: { number: "asc" },
@@ -458,12 +497,24 @@ export async function getAdminSeriesById(id: string) {
   });
 }
 
-export async function getAdminChapters(filters: { workflow?: string; format?: string }) {
+export async function getAdminChapters(filters: { workflow?: string; format?: string; seriesId?: string }) {
+  const profile = await currentProfileOrNull();
+  if (!profile || !isStaffRole(profile.role)) return [];
+
   const chapterWhere: Record<string, unknown> = {};
   if (filters.workflow && ["draft", "review", "published"].includes(filters.workflow))
     chapterWhere.workflow = filters.workflow;
+  if (filters.seriesId) {
+    chapterWhere.seriesId = filters.seriesId;
+  }
+
   const seriesWhere: Record<string, unknown> = {};
   if (filters.format && (FORMATS as readonly string[]).includes(filters.format)) seriesWhere.format = filters.format;
+  if (profile.role !== "admin") {
+    seriesWhere.assignments = { some: { profileId: profile.id } };
+  }
+  chapterWhere.series = seriesWhere;
+
   return db.chapter.findMany({
     where: chapterWhere,
     orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
@@ -471,6 +522,39 @@ export async function getAdminChapters(filters: { workflow?: string; format?: st
       series: { select: { id: true, slug: true, titleAr: true, format: true, accent: true } },
       _count: { select: { pages: true } },
     },
+  });
+}
+
+export async function getStaffOverview() {
+  const profile = await currentProfileOrNull();
+  if (!profile || !isStaffRole(profile.role)) return null;
+  const series = await db.series.findMany({
+    where: profile.role === "admin" ? {} : { assignments: { some: { profileId: profile.id } } },
+    orderBy: { updatedAt: "desc" },
+    include: { _count: { select: { chapters: true } } },
+  });
+  return { profile, series };
+}
+
+export async function getSeriesAssignments(seriesId: string) {
+  const profile = await currentProfileOrNull();
+  if (!profile || profile.role !== "admin") return [];
+  return db.seriesAssignment.findMany({
+    where: { seriesId },
+    include: {
+      profile: { select: { id: true, email: true, nickname: true, role: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+export async function getAssignableStaff() {
+  const profile = await currentProfileOrNull();
+  if (!profile || profile.role !== "admin") return [];
+  return db.profile.findMany({
+    where: { role: { in: ["contributor", "editor"] } },
+    select: { id: true, email: true, nickname: true, role: true },
+    orderBy: { nickname: "asc" },
   });
 }
 
@@ -657,6 +741,10 @@ export async function getFavoriteGenres(profileId: string) {
 /* --- admin: moderation, users, collections, dashboard analytics --- */
 
 export async function getModerationQueue() {
+  const profile = await currentProfileOrNull();
+  if (!profile || (profile.role !== "admin" && profile.role !== "editor")) {
+    return { items: [], hiddenCount: 0, reportCount: 0 };
+  }
   const [items, hiddenCount, reportCount] = await Promise.all([
     db.comment.findMany({
       where: { status: { in: ["flagged", "hidden"] as ("flagged" | "hidden")[] } },
@@ -675,6 +763,8 @@ export async function getModerationQueue() {
 }
 
 export async function getAdminUsers() {
+  const profile = await currentProfileOrNull();
+  if (!profile || profile.role !== "admin") return [];
   return db.profile.findMany({
     orderBy: { createdAt: "asc" },
     select: {
@@ -685,12 +775,16 @@ export async function getAdminUsers() {
 }
 
 export async function getAdminCollections() {
+  const profile = await currentProfileOrNull();
+  if (!profile || profile.role !== "admin") return [];
   return db.editorialCollection.findMany({ orderBy: { displayOrder: "asc" } });
 }
 
 export type DashboardPoint = { day: string; reads: number; logins: number; publish: number };
 
 export async function getDashboardActivity(days = 14): Promise<DashboardPoint[]> {
+  const profile = await currentProfileOrNull();
+  if (!profile || profile.role !== "admin") return [];
   const since = new Date(Date.now() - days * 86400000);
   const events = await db.analyticsEvent.findMany({
     where: {
@@ -748,7 +842,16 @@ export type StudioSeriesRow = {
 };
 
 export async function getStudioOverview(): Promise<StudioSeriesRow[]> {
+  const profile = await currentProfileOrNull();
+  if (!profile || !isStaffRole(profile.role)) return [];
+
+  const where: Record<string, unknown> = {};
+  if (profile.role !== "admin") {
+    where.assignments = { some: { profileId: profile.id } };
+  }
+
   const rows = await db.series.findMany({
+    where,
     orderBy: { reads: "desc" },
     include: {
       _count: { select: { libraryItems: true } },

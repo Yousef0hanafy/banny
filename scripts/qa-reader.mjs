@@ -111,7 +111,14 @@ try {
   // Temporary cwd prevents Bun's automatic project dotenv lookup.
   await run("bun", [path.join(repo, "prisma/seed.ts")], "demo-seed", runDir);
   await run(process.execPath, [path.join(repo, "tests/reader/seed.mjs")], "reader-seed", runDir);
-  await run(process.execPath, [path.join(repo, "node_modules/next/dist/bin/next"), "build"], "build");
+  const actionTests = path.join(repo, "tests/team-access");
+  const hasActionTests = await stat(actionTests).then(() => true, () => false);
+  if (process.argv.includes("--actions-only") && !hasActionTests) throw new Error("Team action tests missing");
+  if (hasActionTests) {
+    await run("bun", ["test", `--tsconfig-override=${path.join(repo, "tsconfig.json")}`, actionTests], "team-access", runDir);
+  }
+  if (!process.argv.includes("--actions-only")) {
+  await run(process.execPath, [path.join(repo, "node_modules/next/dist/bin/next"), "build", "--webpack"], "build");
   const files = JSON.parse(await readFile(path.join(repo, ".next/required-server-files.json"), "utf8"));
   const standaloneRoot = path.join(repo, ".next/standalone");
   const standaloneApp = path.resolve(standaloneRoot, files.relativeAppDir);
@@ -137,6 +144,7 @@ try {
     await response.arrayBuffer();
   }
   await run(process.execPath, [path.join(repo, "node_modules/@playwright/test/cli.js"), "test", "--config", path.join(repo, "playwright.reader.config.ts"), ...process.argv.slice(2)], "playwright");
+  }
 } catch (error) {
   log(error.message);
   process.exitCode = 1;

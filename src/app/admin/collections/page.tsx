@@ -20,7 +20,7 @@ export default async function AdminCollectionsPage({
 }: {
   searchParams: Promise<{ edit?: string }>;
 }) {
-  await requireRole(["admin", "editor"]);
+  await requireRole(["admin"]);
   const { edit } = await searchParams;
   const [collections, seriesRows] = await Promise.all([
     getAdminCollections(),

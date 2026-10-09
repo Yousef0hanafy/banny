@@ -1,11 +1,13 @@
 "use server";
 
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { currentProfileOrNull } from "@/lib/queries";
 import { notifyNewChapter, notifyCommentLike } from "@/lib/notifications";
 import { revalidatePath } from "next/cache";
 import { isWorkflow, isRole, type Workflow, type Role } from "@/lib/constants";
+import { isStaffRole, isAssignableRole, isAssignedToSeries } from "@/lib/team-access";
 
 /* ------------------------------------------------------------------ */
 /* Reading progress (authenticated readers; guests mirror locally)     */
@@ -64,7 +66,15 @@ export async function saveReadingProgress(input: unknown): Promise<ActionResult>
 /* Admin: series + chapters (role enforced here, again)                */
 /* ------------------------------------------------------------------ */
 
-async function requireEditor() {
+async function requireAdmin() {
+  const profile = await currentProfileOrNull();
+  if (!profile || profile.role !== "admin") {
+    throw new Error("FORBIDDEN");
+  }
+  return profile;
+}
+
+async function requireModerator() {
   const profile = await currentProfileOrNull();
   if (!profile || (profile.role !== "admin" && profile.role !== "editor")) {
     throw new Error("FORBIDDEN");
@@ -91,7 +101,7 @@ const seriesSchema = z.object({
 
 export async function upsertSeries(input: unknown): Promise<ActionResult & { slug?: string }> {
   try {
-    await requireEditor();
+    await requireAdmin();
   } catch {
     return { ok: false, error: "forbidden" };
   }
@@ -146,9 +156,8 @@ const chapterMetaSchema = z.object({
 });
 
 export async function updateChapterMeta(input: unknown): Promise<ActionResult> {
-  try {
-    await requireEditor();
-  } catch {
+  const actor = await currentProfileOrNull();
+  if (!actor || !isStaffRole(actor.role)) {
     return { ok: false, error: "forbidden" };
   }
   const parsed = chapterMetaSchema.safeParse(input);
@@ -158,6 +167,59 @@ export async function updateChapterMeta(input: unknown): Promise<ActionResult> {
   const chapter = await db.chapter.findUnique({ where: { id }, include: { series: true } });
   if (!chapter) return { ok: false, error: "not_found" };
 
+  if (actor.role !== "admin") {
+    // Non-admin staff (contributor/editor):
+    // 1. Cannot touch published or scheduled chapters
+    if (chapter.workflow === "published" || chapter.scheduledFor) {
+      return { ok: false, error: "forbidden" };
+    }
+    // 2. Cannot set published workflow
+    if (patch.workflow === "published") {
+      return { ok: false, error: "forbidden" };
+    }
+    // 3. Cannot set premium or schedule
+    if (patch.isPremiumDemo !== undefined || patch.scheduledFor !== undefined) {
+      return { ok: false, error: "forbidden" };
+    }
+    // 4. Must be assigned to the series
+    const assigned = await isAssignedToSeries(actor.id, chapter.seriesId);
+    if (!assigned) {
+      return { ok: false, error: "forbidden" };
+    }
+
+    // Conditional atomic write: verifies workflow remains draft/review, not scheduled, and actor assigned with valid staff role
+    const updateResult = await db.chapter.updateMany({
+      where: {
+        id,
+        workflow: { in: ["draft", "review"] },
+        scheduledFor: null,
+        series: {
+          assignments: {
+            some: {
+              profileId: actor.id,
+              profile: { role: { in: ["contributor", "editor"] } },
+            },
+          },
+        },
+      },
+      data: {
+        ...(patch.titleAr !== undefined ? { titleAr: patch.titleAr } : {}),
+        ...(patch.readingDirection !== undefined ? { readingDirection: patch.readingDirection } : {}),
+        ...(patch.workflow !== undefined ? { workflow: patch.workflow } : {}),
+      },
+    });
+
+    if (updateResult.count === 0) {
+      return { ok: false, error: "conflict" };
+    }
+
+    revalidatePath("/admin/chapters");
+    revalidatePath(`/admin/series/${chapter.seriesId}`);
+    revalidatePath(`/series/${chapter.series.slug}`);
+    return { ok: true };
+  }
+
+  // Admin path:
   const data: Record<string, unknown> = { ...patch };
   if (patch.scheduledFor !== undefined) {
     const when = patch.scheduledFor ? new Date(patch.scheduledFor) : null;
@@ -215,9 +277,8 @@ const createChapterSchema = z.object({
 });
 
 export async function createChapter(input: unknown): Promise<ActionResult & { id?: string }> {
-  try {
-    await requireEditor();
-  } catch {
+  const actor = await currentProfileOrNull();
+  if (!actor || !isStaffRole(actor.role)) {
     return { ok: false, error: "forbidden" };
   }
   const parsed = createChapterSchema.safeParse(input);
@@ -225,6 +286,24 @@ export async function createChapter(input: unknown): Promise<ActionResult & { id
     return { ok: false, error: parsed.error.issues[0]?.message ?? "invalid" };
   }
   const d = parsed.data;
+
+  // Non-admin rules:
+  if (actor.role !== "admin") {
+    const assigned = await isAssignedToSeries(actor.id, d.seriesId);
+    if (!assigned) {
+      return { ok: false, error: "forbidden" };
+    }
+    if (d.workflow === "published") {
+      return { ok: false, error: "forbidden" };
+    }
+    if (d.isPremiumDemo) {
+      return { ok: false, error: "forbidden" };
+    }
+    if (d.scheduledFor) {
+      return { ok: false, error: "forbidden" };
+    }
+  }
+
   const series = await db.series.findUnique({ where: { id: d.seriesId } });
   if (!series) return { ok: false, error: "not_found" };
 
@@ -233,19 +312,27 @@ export async function createChapter(input: unknown): Promise<ActionResult & { id
   });
   if (exists) return { ok: false, error: "رقم الفصل مستخدم في هذا العمل" };
 
-  const chapter = await db.chapter.create({
-    data: {
-      seriesId: series.id,
-      number: d.number,
-      titleAr: d.titleAr,
-      workflow: d.workflow,
-      publishedAt: d.workflow === "published" ? new Date() : null,
-      scheduledFor: d.scheduledFor ? new Date(d.scheduledFor) : null,
-      isPremiumDemo: d.isPremiumDemo,
-      readingDirection: d.readingDirection,
-      novelBody: d.novelBody ?? null,
-    },
-  });
+  let chapter;
+  try {
+    chapter = await db.chapter.create({
+      data: {
+        seriesId: series.id,
+        number: d.number,
+        titleAr: d.titleAr,
+        workflow: d.workflow,
+        publishedAt: d.workflow === "published" ? new Date() : null,
+        scheduledFor: d.scheduledFor ? new Date(d.scheduledFor) : null,
+        isPremiumDemo: d.isPremiumDemo,
+        readingDirection: d.readingDirection,
+        novelBody: d.novelBody ?? null,
+      },
+    });
+  } catch (err: any) {
+    if (err?.code === "P2002") {
+      return { ok: false, error: "رقم الفصل مستخدم في هذا العمل" };
+    }
+    throw err;
+  }
 
   if (d.workflow === "published") {
     await notifyNewChapter({
@@ -310,7 +397,7 @@ export async function createChapter(input: unknown): Promise<ActionResult & { id
 
 export async function setWorkflowBulk(ids: string[], workflow: Workflow): Promise<ActionResult> {
   try {
-    await requireEditor();
+    await requireAdmin();
   } catch {
     return { ok: false, error: "forbidden" };
   }
@@ -549,7 +636,7 @@ const moderationSchema = z.object({
 
 export async function moderateComment(input: unknown): Promise<ActionResult> {
   try {
-    await requireEditor();
+    await requireModerator();
   } catch {
     return { ok: false, error: "forbidden" };
   }
@@ -565,7 +652,7 @@ export async function moderateComment(input: unknown): Promise<ActionResult> {
 
 export async function deleteComment(input: unknown): Promise<ActionResult> {
   try {
-    await requireEditor();
+    await requireModerator();
   } catch {
     return { ok: false, error: "forbidden" };
   }
@@ -577,7 +664,7 @@ export async function deleteComment(input: unknown): Promise<ActionResult> {
   return { ok: true };
 }
 
-/* --- collections CRUD (editor+) --- */
+/* --- collections CRUD (admin only) --- */
 
 const collectionSchema = z.object({
   id: z.string().optional(),
@@ -592,7 +679,7 @@ const collectionSchema = z.object({
 
 export async function upsertCollection(input: unknown): Promise<ActionResult> {
   try {
-    await requireEditor();
+    await requireAdmin();
   } catch {
     return { ok: false, error: "forbidden" };
   }
@@ -622,7 +709,7 @@ export async function upsertCollection(input: unknown): Promise<ActionResult> {
 
 export async function deleteCollection(id: string): Promise<ActionResult> {
   try {
-    await requireEditor();
+    await requireAdmin();
   } catch {
     return { ok: false, error: "forbidden" };
   }
@@ -660,16 +747,137 @@ export async function markAllNotificationsRead(): Promise<ActionResult> {
   return { ok: true };
 }
 
+/* --- team assignments (admin only) --- */
+
+const assignmentSchema = z.object({
+  seriesId: z.string().min(1),
+  profileId: z.string().min(1),
+  assigned: z.boolean(),
+});
+
+export async function setSeriesAssignment(input: unknown): Promise<ActionResult> {
+  const me = await currentProfileOrNull();
+  if (!me || me.role !== "admin") return { ok: false, error: "forbidden" };
+
+  const parsed = assignmentSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "invalid" };
+  const { seriesId, profileId, assigned } = parsed.data;
+
+  const MAX_RETRIES = 5;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const res = await db.$transaction(
+        async (tx) => {
+          const actor = await tx.profile.findUnique({ where: { id: me.id } });
+          if (!actor || actor.role !== "admin") {
+            return { ok: false, error: "forbidden" };
+          }
+          const [series, target] = await Promise.all([
+            tx.series.findUnique({ where: { id: seriesId }, select: { id: true } }),
+            tx.profile.findUnique({ where: { id: profileId }, select: { id: true, role: true } }),
+          ]);
+          if (!series || !target) return { ok: false, error: "not_found" };
+          if (!isAssignableRole(target.role)) {
+            return { ok: false, error: "invalid_target" };
+          }
+
+          if (assigned) {
+            await tx.seriesAssignment.upsert({
+              where: { profileId_seriesId: { profileId, seriesId } },
+              update: {},
+              create: { profileId, seriesId },
+            });
+          } else {
+            await tx.seriesAssignment.deleteMany({
+              where: { profileId, seriesId },
+            });
+          }
+          return { ok: true };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+      );
+      if (res.ok) {
+        revalidatePath("/admin/series");
+        revalidatePath(`/admin/series/${seriesId}`);
+      }
+      return res;
+    } catch (err: any) {
+      if (err?.code === "P2034" || err?.meta?.code === "40001" || err?.code === "P2002") {
+        if (attempt < MAX_RETRIES - 1) {
+          await new Promise((r) => setTimeout(r, 20 + Math.random() * 30));
+          continue;
+        }
+        return { ok: false, error: "conflict" };
+      }
+      throw err;
+    }
+  }
+  return { ok: false, error: "conflict" };
+}
+
 /* --- users & roles (admin only) --- */
 
 export async function setUserRole(profileId: string, role: Role): Promise<ActionResult> {
   const me = await currentProfileOrNull();
   if (!me || me.role !== "admin") return { ok: false, error: "forbidden" };
   if (!isRole(role)) return { ok: false, error: "invalid" };
-  if (profileId === me.id && role !== "admin") return { ok: false, error: "لا يمكن تخفيض دورك الخاص" };
-  const target = await db.profile.findUnique({ where: { id: profileId }, select: { id: true } });
-  if (!target) return { ok: false, error: "not_found" };
-  await db.profile.update({ where: { id: profileId }, data: { role } });
-  revalidatePath("/admin/users");
-  return { ok: true };
+
+  const MAX_RETRIES = 5;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const res = await db.$transaction(
+        async (tx) => {
+          const actor = await tx.profile.findUnique({ where: { id: me.id } });
+          if (!actor || actor.role !== "admin") {
+            return { ok: false, error: "forbidden" };
+          }
+          if (profileId === actor.id && role !== "admin") {
+            return { ok: false, error: "لا يمكن تخفيض دورك الخاص" };
+          }
+          const target = await tx.profile.findUnique({ where: { id: profileId } });
+          if (!target) {
+            return { ok: false, error: "not_found" };
+          }
+          if (target.role === "admin" && role !== "admin") {
+            const adminCount = await tx.profile.count({ where: { role: "admin" } });
+            if (adminCount <= 1) {
+              return { ok: false, error: "last_admin" };
+            }
+          }
+          await tx.profile.update({
+            where: { id: profileId },
+            data: { role },
+          });
+          if (role === "reader") {
+            await tx.seriesAssignment.deleteMany({
+              where: { profileId },
+            });
+          }
+          return { ok: true };
+        },
+        {
+          isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        }
+      );
+      if (res.ok) {
+        revalidatePath("/admin/users");
+      }
+      return res;
+    } catch (err: any) {
+      if (err?.code === "P2034" || err?.meta?.code === "40001") {
+        if (attempt < MAX_RETRIES - 1) {
+          await new Promise((r) => setTimeout(r, 20 + Math.random() * 30));
+          continue;
+        }
+        return { ok: false, error: "conflict" };
+      }
+      throw err;
+    }
+  }
+  return { ok: false, error: "conflict" };
+}
+
+export async function getCurrentUserRole(): Promise<Role | null> {
+  const profile = await currentProfileOrNull();
+  return (profile?.role as Role) ?? null;
 }

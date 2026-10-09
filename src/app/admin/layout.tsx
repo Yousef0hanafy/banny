@@ -2,24 +2,23 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ExternalLink, GalleryVerticalEnd, LayoutDashboard, LibraryBig, ListOrdered, LogOut, MessageSquareWarning, ShieldAlert, UsersRound } from "lucide-react";
 import { BrandMark } from "@/components/library/brand-mark";
-import { getSession } from "@/lib/queries";
+import { currentProfileOrNull } from "@/lib/queries";
+import { isStaffRole } from "@/lib/team-access";
+import { ROLE_LABELS, type Role } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { signOut } from "next-auth/react";
 import { AdminLogoutButton } from "@/components/admin/admin-client";
-
-const ROLE_LABELS: Record<string, string> = { admin: "مدير", editor: "محرر", reader: "قارئ" };
 
 /**
  * Admin layout — second guard layer (docs/DECISIONS.md D-12).
- * Middleware already requires a session; here we verify the role.
+ * Fetches fresh profile from database so role changes apply immediately.
  */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const session = await getSession();
-  if (!session?.user) redirect("/login?next=/admin");
-  const role = session.user.role;
+  const profile = await currentProfileOrNull();
+  if (!profile) redirect("/login?next=/admin");
+  const role = profile.role as Role;
 
-  if (role !== "admin" && role !== "editor") {
+  if (!isStaffRole(role)) {
     return (
       <main className="bg-library-glow flex min-h-screen flex-col items-center justify-center px-6 text-center">
         <span className="grid size-16 place-items-center rounded-2xl border border-danger/40 bg-danger/10 text-danger">
@@ -27,7 +26,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </span>
         <h1 className="mt-5 text-2xl font-bold text-foreground">لا تملك صلاحية الوصول</h1>
         <p className="mt-2 max-w-sm text-sm leading-7 text-muted-foreground">
-          لوحة الإدارة متاحة لحسابات «مدير» و«محرر» فقط. حسابك الحالي: <strong>{ROLE_LABELS[role] ?? role}</strong>.
+          لوحة الإدارة متاحة لفريق العمل فقط. حسابك الحالي: <strong>{ROLE_LABELS[role] ?? role}</strong>.
         </p>
         <Button asChild className="mt-6 bg-primary text-primary-foreground hover:bg-primary/90">
           <Link href="/">العودة إلى المكتبة</Link>
@@ -36,13 +35,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     );
   }
 
+  const isAdmin = role === "admin";
+  const isEditor = role === "editor";
+
   const nav = [
-    { href: "/admin", label: "اللوحة", icon: LayoutDashboard },
-    { href: "/admin/series", label: "الأعمال", icon: LibraryBig },
+    { href: "/admin", label: isAdmin ? "اللوحة" : "أعمالي", icon: LayoutDashboard },
+    { href: "/admin/series", label: isAdmin ? "الأعمال" : "أعمالي المسندة", icon: LibraryBig },
     { href: "/admin/chapters", label: "الفصول", icon: ListOrdered },
-    { href: "/admin/moderation", label: "الإشراف", icon: MessageSquareWarning },
-    { href: "/admin/collections", label: "المجموعات", icon: GalleryVerticalEnd },
-    ...(role === "admin" ? [{ href: "/admin/users", label: "المستخدمون", icon: UsersRound }] : []),
+    ...(isAdmin || isEditor ? [{ href: "/admin/moderation", label: "الإشراف", icon: MessageSquareWarning }] : []),
+    ...(isAdmin ? [{ href: "/admin/collections", label: "المجموعات", icon: GalleryVerticalEnd }] : []),
+    ...(isAdmin ? [{ href: "/admin/users", label: "المستخدمون", icon: UsersRound }] : []),
   ];
 
   return (
@@ -81,8 +83,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </Link>
           </Button>
           <div className="rounded-xl border border-border/60 bg-card p-3">
-            <p className="truncate text-sm font-medium text-foreground">{session.user.name}</p>
-            <p className="mt-0.5 truncate text-[11px] text-muted-foreground" dir="ltr">{session.user.email}</p>
+            <p className="truncate text-sm font-medium text-foreground">{profile.nickname}</p>
+            <p className="mt-0.5 truncate text-[11px] text-muted-foreground" dir="ltr">{profile.email}</p>
             <Badge variant="secondary" className="mt-2 bg-primary/15 text-primary border-primary/25">
               {ROLE_LABELS[role]}
             </Badge>

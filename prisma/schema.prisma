@@ -23,6 +23,7 @@ datasource db {
 
 enum UserRole {
   reader
+  contributor
   editor
   admin
 
@@ -97,15 +98,15 @@ enum CommentStatus {
 }
 
 model Profile {
-  id              String            @id @default(cuid())
-  email           String            @unique
+  id              String             @id @default(cuid())
+  email           String             @unique
   nickname        String
   passwordHash    String
-  role            UserRole          @default(reader)
-  avatarSeed      String            @default("v1")
+  role            UserRole           @default(reader)
+  avatarSeed      String             @default("v1")
   bio             String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
   readingProgress ReadingProgress[]
   events          AnalyticsEvent[]
   libraryItems    LibraryItem[]
@@ -114,35 +115,49 @@ model Profile {
   ratings         Rating[]
   notifications   Notification[]
   commentLikes    CommentLike[]
+  assignments     SeriesAssignment[]
 }
 
 model Series {
-  id            String            @id @default(cuid())
-  slug          String            @unique
+  id            String             @id @default(cuid())
+  slug          String             @unique
   titleAr       String
   titleOriginal String?
   synopsisAr    String
   format        SeriesFormat
-  status        SeriesStatus      @default(ongoing)
-  genresJson    String            @default("[]")
-  tagsJson      String            @default("[]")
+  status        SeriesStatus       @default(ongoing)
+  genresJson    String             @default("[]")
+  tagsJson      String             @default("[]")
   author        String
   translator    String?
   coverPath     String
-  accent        String            @default("#9B7BFF")
-  isFeatured    Boolean           @default(false)
-  ratingAvg     Float             @default(0)
-  ratingCount   Int               @default(0)
-  displayOrder  Int               @default(0)
-  reads         Int               @default(0)
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  accent        String             @default("#9B7BFF")
+  isFeatured    Boolean            @default(false)
+  ratingAvg     Float              @default(0)
+  ratingCount   Int                @default(0)
+  displayOrder  Int                @default(0)
+  reads         Int                @default(0)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
   chapters      Chapter[]
   progress      ReadingProgress[]
   events        AnalyticsEvent[]
   libraryItems  LibraryItem[]
   comments      Comment[]
   ratings       Rating[]
+  assignments   SeriesAssignment[]
+}
+
+model SeriesAssignment {
+  id        String   @id @default(cuid())
+  profileId String
+  seriesId  String
+  createdAt DateTime @default(now())
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  series    Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, seriesId])
+  @@index([seriesId])
 }
 
 model Chapter {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
@@ -16,6 +17,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { getCurrentUserRole } from "@/lib/actions";
+import type { Role } from "@/lib/constants";
 
 function Logo() {
   return (
@@ -34,7 +37,36 @@ function Logo() {
 export function SiteHeader() {
   const pathname = usePathname();
   const { data: session, status } = useSession();
-  const role = session?.user?.role;
+  const userId = session?.user?.id;
+  const [roleSnapshot, setRoleSnapshot] = useState<{ userId: string; role: Role } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!userId) {
+      return;
+    }
+
+    getCurrentUserRole()
+      .then((role) => {
+        if (!cancelled && role) {
+          setRoleSnapshot({ userId, role });
+        } else if (!cancelled) {
+          setRoleSnapshot(null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRoleSnapshot(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, pathname]);
+
+  const currentRole = roleSnapshot && roleSnapshot.userId === userId ? roleSnapshot.role : null;
+  const isStaff = currentRole === "admin" || currentRole === "editor" || currentRole === "contributor";
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 backdrop-blur-md">
@@ -90,14 +122,14 @@ export function SiteHeader() {
                     <UserRound className="size-4 me-2" aria-hidden /> حسابي
                   </Link>
                 </DropdownMenuItem>
-                {(role === "admin" || role === "editor") && (
+                {isStaff && (
                   <DropdownMenuItem asChild>
                     <Link href="/studio" className="cursor-pointer">
                       <PenTool className="size-4 me-2" aria-hidden /> استوديو المبدعين
                     </Link>
                   </DropdownMenuItem>
                 )}
-                {(role === "admin" || role === "editor") && (
+                {isStaff && (
                   <DropdownMenuItem asChild>
                     <Link href="/admin" className="cursor-pointer">
                       <ShieldCheck className="size-4 me-2" aria-hidden /> لوحة الإدارة

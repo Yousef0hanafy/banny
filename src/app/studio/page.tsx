@@ -29,7 +29,7 @@ export const metadata: Metadata = {
  * editing itself stays in /admin; this is the calm, zero-DDL overview.
  */
 export default async function StudioPage() {
-  await requireRole(["editor", "admin"]);
+  await requireRole(["contributor", "editor", "admin"]);
   const rows = await getStudioOverview();
 
   const totals = rows.reduce(

@@ -6,8 +6,14 @@
  * the source of truth for Arabic labels, zod schemas and JWT/session validation.
  */
 
-export const ROLES = ["reader", "editor", "admin"] as const;
+export const ROLES = ["reader", "contributor", "editor", "admin"] as const;
 export type Role = (typeof ROLES)[number];
+export const ROLE_LABELS: Record<Role, string> = {
+  reader: "قارئ",
+  contributor: "مساهم",
+  editor: "محرر",
+  admin: "مدير",
+};
 
 export const FORMATS = ["manga", "webtoon", "novel"] as const;
 export type Format = (typeof FORMATS)[number];

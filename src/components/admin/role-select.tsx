@@ -12,7 +12,7 @@ import {
 import { setUserRole } from "@/lib/actions";
 import type { Role } from "@/lib/constants";
 
-const LABELS: Record<Role, string> = { admin: "مدير", editor: "محرر", reader: "قارئ" };
+const LABELS: Record<Role, string> = { admin: "مدير", editor: "محرر", contributor: "مساهم", reader: "قارئ" };
 
 /** Admin-only role switcher; the admin cannot demote themselves. */
 export function RoleSelect({ profileId, role, isSelf }: { profileId: string; role: Role; isSelf: boolean }) {

@@ -210,12 +210,12 @@ into an empty `AnalyticsEvent` table; demo progress rows are upserted).
 | Guarantee | Enforced by | Where |
 |---|---|---|
 | Authentication (who you are) | NextAuth credentials + JWT sessions (scrypt hashes) | **Server-side** |
-| Role vocabulary (`reader\|editor\|admin`) | Native Postgres enum `user_role` | **Database-side** |
+| Role vocabulary (`reader\|contributor\|editor\|admin`) | Native Postgres enum `user_role` | **Database-side** |
 | Content workflow (`draft\|review\|published`), format, status, reading direction, event type | Native Postgres enums | **Database-side** |
-| Admin authorization (who may write) | 3 application layers: middleware → admin layout guard → `requireRole` inside every admin Server Action/query | **Server-side** (no RLS) |
+| Staff authorization & scoped workspaces (who may write) | Fresh DB profile guards in admin layout + `requireRole` + per-series assignment checks in Server Actions/queries | **Server-side** (no RLS) |
 | Public users only see published chapters | `workflow='published'` filters in every public query | **Server-side** (no RLS) |
 | Reading progress belongs to its owner | profile/chapter scoping in queries + Server Actions | **Server-side** (no RLS) |
-| One chapter number per series; one page index per chapter; one progress row per (profile, chapter); unique slugs/emails | Unique constraints / composite unique indexes | **Database-side** |
+| One assignment per (profile, series); one chapter number per series; one page index per chapter; one progress row per (profile, chapter); unique slugs/emails | Unique constraints / composite unique indexes | **Database-side** |
 | Referential integrity (orphan pages/progress impossible; deleting a series cascades; analytics survive author deletion via `SET NULL`) | Foreign keys with explicit delete rules | **Database-side** |
 | Required fields & defaults | NOT NULL + column defaults | **Database-side** |
 | Input validation before any write | zod schemas in Server Actions | **Server-side** |
@@ -236,9 +236,11 @@ See [Database — Neon PostgreSQL](#database--neon-postgresql-runtime) above: `.
 
 | Role | Email | Password | Can do |
 |---|---|---|---|
-| Admin | `admin@bunny.demo` | `bunny-admin-2026` | Full admin panel incl. publish workflow |
+| Admin | `admin@bunny.demo` | `bunny-admin-2026` | Full admin panel, global series/collections/users, team assignments, publication |
+| Editor | `editor@bunny.demo` | `bunny-editor-2026` | Draft/review chapter preparation on assigned series (requires admin assignment in C1) + comment moderation queue |
 | Reader | `reader@bunny.demo` | `bunny-reader-2026` | Synced reading progress (seeded mid-chapter) |
-| Editor | `editor@bunny.demo` | `bunny-editor-2026` | Content management (no admin-only screens) |
+
+*Note on staff roles in C1:* The database seed retains the three baseline accounts above. The `contributor` role is granted by an admin via `/admin/users`. Contributors and editors work strictly within series assigned to them by an admin in `/admin/series/[id]`. C1 interim boundaries apply: final publication authority remains with admins, and invitation/revision workflows remain deferred to C2.
 
 Guests can browse and read; their progress persists in `localStorage` only (by design — DB-backed library is Release B).
 

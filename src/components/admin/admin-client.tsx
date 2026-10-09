@@ -246,10 +246,39 @@ type ChapterRow = {
   scheduledFor?: string | null;
 };
 
-export function ChapterWorkflowControls({ chapter }: { chapter: ChapterRow }) {
+export function ChapterWorkflowControls({
+  chapter,
+  isAdmin = false,
+}: {
+  chapter: ChapterRow;
+  isAdmin?: boolean;
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState<string | null>(null);
+
+  // If chapter is published or scheduled and actor is not admin, controls are strictly read-only
+  if (!isAdmin && (chapter.workflow === "published" || Boolean(chapter.scheduledFor))) {
+    return (
+      <div className="flex flex-wrap items-center justify-end gap-1.5 text-xs text-muted-foreground">
+        <span className="rounded-md border border-border bg-card px-2.5 py-1 font-medium">
+          {WORKFLOW_LABELS[chapter.workflow]}
+        </span>
+        {chapter.isPremiumDemo && (
+          <span className="rounded-md border border-gold/40 bg-gold/10 px-2 py-1 text-gold">
+            مقفل
+          </span>
+        )}
+        {chapter.scheduledFor && (
+          <span className="rounded-md border border-border bg-card px-2 py-1 text-[11px]" dir="ltr">
+            {new Date(chapter.scheduledFor).toLocaleDateString("ar-EG")}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  const availableWorkflows = isAdmin ? WORKFLOWS : WORKFLOWS.filter((w) => w !== "published");
 
   async function set(workflow: ChapterRow["workflow"]) {
     setLoading(workflow);
@@ -264,6 +293,7 @@ export function ChapterWorkflowControls({ chapter }: { chapter: ChapterRow }) {
   }
 
   async function togglePremium() {
+    if (!isAdmin) return;
     setLoading("premium");
     const res = await updateChapterMeta({ id: chapter.id, isPremiumDemo: !chapter.isPremiumDemo });
     setLoading(null);
@@ -274,6 +304,7 @@ export function ChapterWorkflowControls({ chapter }: { chapter: ChapterRow }) {
   }
 
   async function schedule(value: string) {
+    if (!isAdmin) return;
     setLoading("schedule");
     const res = await updateChapterMeta({
       id: chapter.id,
@@ -299,35 +330,45 @@ export function ChapterWorkflowControls({ chapter }: { chapter: ChapterRow }) {
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {WORKFLOWS.map((w) => <SelectItem key={w} value={w}>{WORKFLOW_LABELS[w]}</SelectItem>)}
+          {availableWorkflows.map((w) => <SelectItem key={w} value={w}>{WORKFLOW_LABELS[w]}</SelectItem>)}
         </SelectContent>
       </Select>
-      <Button
-        variant="outline"
-        size="sm"
-        className={`border-gold/40 text-gold ${chapter.isPremiumDemo ? "bg-gold/10" : ""}`}
-        onClick={togglePremium}
-        disabled={loading === "premium"}
-        title="قفل/فتح العرض التجريبي للفصل"
-      >
-        {chapter.isPremiumDemo ? "مقفل" : "قفل تجريبي"}
-      </Button>
-      <input
-        type="datetime-local"
-        value={scheduleValue}
-        onChange={(e) => schedule(e.target.value)}
-        disabled={loading === "schedule"}
-        aria-label={`جدولة نشر الفصل ${chapter.number}`}
-        title="جدولة النشر — فارغ يعني نشرًا فوريًا"
-        className="h-8 rounded-md border border-border bg-card px-2 text-[11px] text-muted-foreground"
-        dir="ltr"
-      />
+      {isAdmin && (
+        <>
+          <Button
+            variant="outline"
+            size="sm"
+            className={`border-gold/40 text-gold ${chapter.isPremiumDemo ? "bg-gold/10" : ""}`}
+            onClick={togglePremium}
+            disabled={loading === "premium"}
+            title="قفل/فتح العرض التجريبي للفصل"
+          >
+            {chapter.isPremiumDemo ? "مقفل" : "قفل تجريبي"}
+          </Button>
+          <input
+            type="datetime-local"
+            value={scheduleValue}
+            onChange={(e) => schedule(e.target.value)}
+            disabled={loading === "schedule"}
+            aria-label={`جدولة نشر الفصل ${chapter.number}`}
+            title="جدولة النشر — فارغ يعني نشرًا فوريًا"
+            className="h-8 rounded-md border border-border bg-card px-2 text-[11px] text-muted-foreground"
+            dir="ltr"
+          />
+        </>
+      )}
       {loading && loading !== "premium" && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden />}
     </div>
   );
 }
 
-export function ChapterForm({ seriesOptions }: { seriesOptions: { id: string; titleAr: string; format: Format }[] }) {
+export function ChapterForm({
+  seriesOptions,
+  isAdmin = false,
+}: {
+  seriesOptions: { id: string; titleAr: string; format: Format }[];
+  isAdmin?: boolean;
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [seriesId, setSeriesId] = useState(seriesOptions[0]?.id ?? "");
@@ -342,6 +383,7 @@ export function ChapterForm({ seriesOptions }: { seriesOptions: { id: string; ti
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const availableWorkflows = isAdmin ? WORKFLOWS : WORKFLOWS.filter((w) => w !== "published");
   const selected = seriesOptions.find((s) => s.id === seriesId);
   const isManga = selected?.format === "manga";
   const isNovel = selected?.format === "novel";
@@ -355,10 +397,10 @@ export function ChapterForm({ seriesOptions }: { seriesOptions: { id: string; ti
       number: Number(number),
       titleAr,
       workflow,
-      isPremiumDemo,
+      isPremiumDemo: isAdmin ? isPremiumDemo : false,
       readingDirection: isManga ? readingDirection : "rtl",
       pageCount: Number(pageCount),
-      scheduledFor: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+      scheduledFor: isAdmin && scheduledAt ? new Date(scheduledAt).toISOString() : null,
       novelBody: isNovel ? novelBody : undefined,
     });
     setLoading(false);
@@ -410,7 +452,7 @@ export function ChapterForm({ seriesOptions }: { seriesOptions: { id: string; ti
           <Select value={workflow} onValueChange={(v) => setWorkflow(v as typeof workflow)}>
             <SelectTrigger className="bg-card"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {WORKFLOWS.map((w) => <SelectItem key={w} value={w}>{WORKFLOW_LABELS[w]}</SelectItem>)}
+              {availableWorkflows.map((w) => <SelectItem key={w} value={w}>{WORKFLOW_LABELS[w]}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -426,7 +468,7 @@ export function ChapterForm({ seriesOptions }: { seriesOptions: { id: string; ti
             </Select>
           </div>
         )}
-        {!isNovel && (
+        {isAdmin && !isNovel && (
           <div className="space-y-1.5">
             <label className="text-sm font-medium">جدولة النشر (اختياري)</label>
             <Input
@@ -454,10 +496,12 @@ export function ChapterForm({ seriesOptions }: { seriesOptions: { id: string; ti
           <p className="text-[11px] text-muted-foreground">{novelBody.split(/\s+/).filter(Boolean).length} كلمة — كل سطر جديد يبدأ فقرة.</p>
         </div>
       )}
-      <label className="flex items-center gap-2.5 text-sm">
-        <input type="checkbox" checked={isPremiumDemo} onChange={(e) => setIsPremiumDemo(e.target.checked)} className="size-4 accent-[var(--primary)]" />
-        فصل تجريبي مقفل (لعرض حالة الفصول المميزة — بلا شراء)
-      </label>
+      {isAdmin && (
+        <label className="flex items-center gap-2.5 text-sm">
+          <input type="checkbox" checked={isPremiumDemo} onChange={(e) => setIsPremiumDemo(e.target.checked)} className="size-4 accent-[var(--primary)]" />
+          فصل تجريبي مقفل (لعرض حالة الفصول المميزة — بلا شراء)
+        </label>
+      )}
       {error && <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">{error}</p>}
       <Button type="submit" disabled={loading} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
         {loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Plus className="size-4" aria-hidden />}

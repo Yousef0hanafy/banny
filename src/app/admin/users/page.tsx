@@ -3,12 +3,14 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { requireRole, getAdminUsers } from "@/lib/queries";
 import { RoleSelect } from "@/components/admin/role-select";
+import { ROLE_LABELS, type Role } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
 const ROLE_BADGE: Record<string, string> = {
   admin: "border-primary/40 bg-primary/10 text-primary",
   editor: "border-gold/40 bg-gold/10 text-gold",
+  contributor: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
   reader: "border-border bg-secondary text-muted-foreground",
 };
 
@@ -38,7 +40,7 @@ export default async function AdminUsersPage() {
               <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
                 {u.nickname}
                 <Badge variant="secondary" className={ROLE_BADGE[u.role] ?? ""}>
-                  {u.role === "admin" ? "مدير" : u.role === "editor" ? "محرر" : "قارئ"}
+                  {ROLE_LABELS[u.role as Role] ?? u.role}
                 </Badge>
               </p>
               <p className="text-[11px] text-muted-foreground" dir="ltr">{u.email}</p>
@@ -46,7 +48,7 @@ export default async function AdminUsersPage() {
             <p className="hidden text-[11px] text-muted-foreground sm:block">
               {u._count.libraryItems} مكتبة · {u._count.comments} تعليق · {u._count.readingProgress} تقدم
             </p>
-            <RoleSelect profileId={u.id} role={u.role as "reader"} isSelf={u.id === me.id} />
+            <RoleSelect profileId={u.id} role={u.role as Role} isSelf={u.id === me.id} />
           </li>
         ))}
       </ul>
