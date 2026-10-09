@@ -23,6 +23,6 @@ try {
       }
     }
   }
-  const other = await db.series.create({ data: { slug: "qa-reader-other", titleAr: "عمل آخر", synopsisAr: "اختبار", author: "اختبار", format: "manga", coverPath: "/art/covers/warden-of-the-twilight-gate.webp" } });
-  await db.chapter.createMany({ data: [1, 2, 7].map(number => ({ seriesId: other.id, number, titleAr: "فصل من عمل آخر", workflow: "published", publishedAt: new Date(Date.now() - 86400000) })) });
+  const other = await db.series.create({ data: { slug: "qa-reader-other", titleAr: "عمل آخر", synopsisAr: "اختبار", author: "اختبار", format: "manga", coverPath: "" } });
+  await db.chapter.createMany({ data: [1, 2, 7].map(number => ({ seriesId: other.id, number, titleAr: "فصل من عمل آخر", workflow: "published", publishedAt: new Date(Date.now() - 30 * 86400000) })) });
 } finally { await db.$disconnect(); }

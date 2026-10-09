@@ -15,7 +15,7 @@ import {
  * supports it, otherwise copy-to-clipboard + X/WhatsApp/Telegram intents.
  * URL is computed on interaction only (no hydration surface).
  */
-export function ShareButton({ slug, titleAr }: { slug: string; titleAr: string }) {
+export function ShareButton({ slug, titleAr, compact = false }: { slug: string; titleAr: string; compact?: boolean }) {
   const [copied, setCopied] = useState(false);
 
   const url = () => `${window.location.origin}/series/${slug}`;
@@ -55,11 +55,11 @@ export function ShareButton({ slug, titleAr }: { slug: string; titleAr: string }
         <Button
           variant="outline"
           size="sm"
-          className="gap-2 border-border text-muted-foreground hover:text-foreground"
+          className={`h-11 shrink-0 gap-2 border-border text-muted-foreground hover:text-foreground ${compact ? "w-11 px-0 lg:w-auto lg:px-4" : ""}`}
           aria-label={`مشاركة «${titleAr}»`}
         >
           <Share2 className="size-4" aria-hidden />
-          مشاركة
+          <span className={compact ? "hidden lg:inline" : ""}>مشاركة</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-52">

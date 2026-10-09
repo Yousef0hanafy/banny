@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { BookOpen, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -32,13 +32,16 @@ export function WorkHeroActions({
   const { status } = useSession();
   const mounted = useHydrated();
   const [showSticky, setShowSticky] = useState(false);
+  const actionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const onScroll = () => {
-      setShowSticky(window.scrollY > 320);
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const element = actionsRef.current;
+    if (!element) return;
+    const observer = new IntersectionObserver(([entry]) => {
+      setShowSticky(!entry.isIntersecting && entry.boundingClientRect.bottom < 0);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
   }, []);
 
   const target = useMemo(() => {
@@ -74,18 +77,18 @@ export function WorkHeroActions({
   if (!chapters.length) {
     return <div className="space-y-3">
       <p className="text-sm text-muted-foreground">الفصول تُنشر قريبًا. أضف العمل لمكتبتك لمتابعته.</p>
-      <div className="flex gap-2"><LibraryButton slug={slug} initialShelf={initialShelf} /><ShareButton slug={slug} titleAr={titleAr} /></div>
+      <div className="flex gap-2"><LibraryButton slug={slug} initialShelf={initialShelf} compact /><ShareButton slug={slug} titleAr={titleAr} compact /></div>
     </div>;
   }
   const primaryHref = readerHref(format, slug, target.chapter);
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2.5">
+      <div ref={actionsRef} className="flex items-start gap-2 lg:flex-wrap lg:gap-2.5">
         <Button
           asChild
           size="lg"
-          className="h-11 gap-2 rounded-xl bg-primary px-6 font-bold text-primary-foreground shadow-[0_4px_20px_-4px_rgba(180,151,239,0.5)] transition hover:bg-primary/90"
+          className="h-11 min-w-0 flex-1 gap-2 rounded-xl bg-primary px-3 font-bold text-primary-foreground transition hover:bg-primary/90 lg:flex-none lg:px-6"
         >
           <Link href={primaryHref}>
             {target.resuming ? (
@@ -95,15 +98,16 @@ export function WorkHeroActions({
             )}
             <span>{target.label}</span>
             {target.resuming && (
-              <span className="text-xs font-semibold opacity-85">({Math.round(target.percent)}٪)</span>
+              <span className="hidden text-xs font-semibold opacity-85 sm:inline">({Math.round(target.percent)}٪)</span>
             )}
           </Link>
         </Button>
 
-        <LibraryButton slug={slug} initialShelf={initialShelf} />
-        <ShareButton slug={slug} titleAr={titleAr} />
+        <LibraryButton slug={slug} initialShelf={initialShelf} compact />
+        <ShareButton slug={slug} titleAr={titleAr} compact />
       </div>
 
+      <p className="text-xs text-muted-foreground">حفظ العمل في مكتبتك يفعّل إشعارات الفصول الجديدة داخل الموقع.</p>
       {status === "unauthenticated" && (
         <p className="text-xs text-muted-foreground">
           تقرأ كزائر — يُحفظ تقدمك على هذا الجهاز.{" "}
@@ -123,7 +127,7 @@ export function WorkHeroActions({
               {target.resuming ? `الفصل ${target.chapter} (${Math.round(target.percent)}٪)` : "ابدأ القراءة الآن"}
             </p>
           </div>
-          <Button asChild size="sm" className="h-9 shrink-0 gap-1.5 rounded-lg bg-primary px-4 font-bold text-primary-foreground">
+          <Button asChild size="sm" className="h-11 shrink-0 gap-1.5 rounded-lg bg-primary px-4 font-bold text-primary-foreground">
             <Link href={primaryHref}>
               {target.resuming ? <BookOpen className="size-4" /> : <Play className="size-4 fill-current" />}
               <span>{target.label}</span>

@@ -11,11 +11,8 @@ import {
   Search,
   ArrowUpDown,
   BookOpen,
-  Sparkles,
   UserRound,
-  Languages,
   Tag,
-  Info,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -96,7 +93,18 @@ export function WorkTabs({
   const mounted = useHydrated();
 
   // Determine current active resume chapter and map of chapter progress
-  const progressMap = useMemo(() => new Map(progressMapEntries), [progressMapEntries]);
+  const progressMap = useMemo(() => {
+    const map = new Map(progressMapEntries);
+    if (mounted) {
+      const local = readLocal(slug);
+      const chapter = local && local.format === format
+        ? publishedChapters.find(c => c.number === local.chapterNumber && !c.isPremiumDemo) : null;
+      if (local && chapter && !map.has(chapter.id)) {
+        map.set(chapter.id, { pageIndex: local.pageIndex, percent: local.percent, completed: local.percent >= 99 });
+      }
+    }
+    return map;
+  }, [progressMapEntries, mounted, slug, format, publishedChapters]);
 
   const activeProgress = useMemo(() => {
     let p = serverProgress;
@@ -109,10 +117,6 @@ export function WorkTabs({
     return p && p.percent > 0 && p.percent < 100 &&
       publishedChapters.some(c => c.number === p.chapterNumber && !c.isPremiumDemo) ? p : null;
   }, [mounted, serverProgress, slug, publishedChapters, format]);
-
-  const maxPublishedNumber = useMemo(() => {
-    return publishedChapters.reduce((max, c) => Math.max(max, c.number), 0);
-  }, [publishedChapters]);
 
   // Filter and sort chapters
   const filteredChapters = useMemo(() => {
@@ -156,7 +160,7 @@ export function WorkTabs({
             id="tab-chapters"
             tabIndex={activeTab === "chapters" ? 0 : -1}
             onClick={() => setActiveTab("chapters")}
-            className={`relative flex items-center gap-2 pb-3.5 pt-1 text-sm font-bold transition ${
+            className={`relative flex min-h-11 items-center gap-2 rounded-t-md pb-3 pt-2 text-sm font-bold transition focus-visible:outline-2 focus-visible:outline-ring ${
               activeTab === "chapters"
                 ? "text-primary"
                 : "text-muted-foreground hover:text-foreground"
@@ -185,7 +189,7 @@ export function WorkTabs({
             id="tab-about"
             tabIndex={activeTab === "about" ? 0 : -1}
             onClick={() => setActiveTab("about")}
-            className={`relative flex items-center gap-2 pb-3.5 pt-1 text-sm font-bold transition ${
+            className={`relative flex min-h-11 items-center gap-2 rounded-t-md pb-3 pt-2 text-sm font-bold transition focus-visible:outline-2 focus-visible:outline-ring ${
               activeTab === "about"
                 ? "text-primary"
                 : "text-muted-foreground hover:text-foreground"
@@ -205,7 +209,7 @@ export function WorkTabs({
             id="tab-reviews"
             tabIndex={activeTab === "reviews" ? 0 : -1}
             onClick={() => setActiveTab("reviews")}
-            className={`relative flex items-center gap-2 pb-3.5 pt-1 text-sm font-bold transition ${
+            className={`relative flex min-h-11 items-center gap-2 rounded-t-md pb-3 pt-2 text-sm font-bold transition focus-visible:outline-2 focus-visible:outline-ring ${
               activeTab === "reviews"
                 ? "text-primary"
                 : "text-muted-foreground hover:text-foreground"
@@ -224,7 +228,7 @@ export function WorkTabs({
         <div id="panel-chapters" role="tabpanel" aria-labelledby="tab-chapters" className="pt-6">
           {/* Quick Resume Highlight Bar */}
           {activeProgress && (
-            <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-primary/20 bg-primary/5 p-4 sm:p-5">
+            <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 text-xs font-bold text-primary">
                   <BookOpen className="size-4" aria-hidden />
@@ -243,7 +247,7 @@ export function WorkTabs({
               <Button
                 asChild
                 size="sm"
-                className="rounded-xl bg-primary px-4 font-bold text-primary-foreground hover:bg-primary/90"
+                className="h-11 shrink-0 rounded-lg bg-primary px-3 text-xs font-bold text-primary-foreground hover:bg-primary/90"
               >
                 <Link href={readerHref(format, slug, activeProgress.chapterNumber)}>
                   متابعة القراءة
@@ -253,15 +257,16 @@ export function WorkTabs({
           )}
 
           {/* Search & Sort Controls */}
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="relative min-w-[220px] flex-1 sm:max-w-xs">
+          <div className="mb-4 flex items-center gap-2">
+            <div className="relative min-w-0 flex-1">
               <Search className="pointer-events-none absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <Input
                 type="search"
+                aria-label="البحث في الفصول"
                 placeholder="ابحث عن فصل..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-10 rounded-xl border-border/60 bg-secondary/30 ps-9 text-xs focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
+                className="h-11 rounded-xl border-border/60 bg-secondary/30 ps-9 text-xs focus-visible:border-primary focus-visible:ring-1 focus-visible:ring-primary"
               />
             </div>
 
@@ -270,7 +275,7 @@ export function WorkTabs({
               variant="outline"
               size="sm"
               onClick={() => setSortOrder((v) => (v === "desc" ? "asc" : "desc"))}
-              className="h-10 gap-1.5 rounded-xl border-border/60 bg-card px-3 text-xs font-medium hover:bg-accent/40"
+              className="h-11 shrink-0 gap-1.5 rounded-xl border-border/60 bg-card px-3 text-xs font-medium hover:bg-accent/40"
               title="تغيير اتجاه ترتيب الفصول"
               aria-label={`الترتيب الحالي: ${sortOrder === "desc" ? "الأحدث أولاً" : "الأقدم أولاً"}`}
             >
@@ -280,30 +285,31 @@ export function WorkTabs({
           </div>
 
           {/* Chapter List */}
-          <ol className="divide-y divide-border/60 overflow-hidden rounded-2xl border border-border/60 bg-card" aria-label="قائمة الفصول">
+          <ol className="space-y-2" aria-label="قائمة الفصول">
             {filteredChapters.map((c) => {
               const locked = c.isPremiumDemo;
               const p = progressMap.get(c.id);
               const isCurrentResume = activeProgress?.chapterNumber === c.number;
               const isRead = p?.completed || (p?.percent ?? 0) >= 99;
               const inProg = !isRead && p && p.percent > 0;
-              const isNew = !isRead && !inProg && (c.number === maxPublishedNumber || (c.publishedAt && Date.now() - new Date(c.publishedAt).getTime() < 14 * 86400000));
+              const age = c.publishedAt ? Date.now() - new Date(c.publishedAt).getTime() : null;
+              const isNew = !isRead && !inProg && age !== null && age >= 0 && age < 14 * 86400000;
 
               return (
                 <li key={c.id}>
                   <Link
                     href={readerHref(format, slug, c.number)}
-                    className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-accent/30 sm:gap-4 sm:px-5"
+                    className={"group flex items-center gap-3 rounded-xl border p-3 transition hover:border-primary/40 focus-visible:outline-2 focus-visible:outline-ring sm:gap-4 " + (isCurrentResume ? "border-primary/40 bg-primary/10" : "border-border/70 bg-card/50 hover:bg-card")}
                   >
                     {/* Chapter thumbnail / badge */}
-                    <div className="relative size-12 shrink-0 overflow-hidden rounded-xl border border-border/70 bg-secondary/40 sm:h-14 sm:w-20">
-                      <Image
-                        src={coverPath || "/art/covers/warden-of-the-twilight-gate.webp"}
-                        alt={`غلاف الفصل ${c.number}`}
+                    <div className="relative h-16 w-[72px] shrink-0 overflow-hidden rounded-lg border border-border/70 bg-secondary/40 sm:h-[72px] sm:w-[88px]">
+                      {coverPath.trim() ? <Image
+                        src={coverPath}
+                        alt=""
                         fill
-                        sizes="80px"
+                        sizes="88px"
                         className="object-cover opacity-80 transition duration-300 group-hover:scale-105"
-                      />
+                      /> : <BookOpen className="absolute start-2 top-2 size-4 text-muted-foreground/50" aria-hidden />}
                       <div className="absolute inset-0 bg-background/30" />
                       <span className="absolute inset-0 grid place-items-center text-xs font-bold text-foreground drop-shadow">
                         {locked ? <Lock className="size-4 text-gold" /> : c.number}
@@ -311,10 +317,11 @@ export function WorkTabs({
                     </div>
 
                     {/* Chapter details */}
-                    <div className="min-w-0 flex-1">
+                    <div className="grid min-w-0 flex-1 items-center gap-x-5 sm:grid-cols-[minmax(0,1fr)_auto]">
+                      <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="truncate text-sm font-bold text-foreground">
-                          الفصل {c.number}: {c.titleAr}
+                        <span className="text-sm font-bold text-foreground">
+                          الفصل {c.number}
                         </span>
 
                         {/* Explicit distinct status labels */}
@@ -338,7 +345,7 @@ export function WorkTabs({
                         {inProg && !isCurrentResume && (
                           <span className="flex shrink-0 items-center gap-1 text-[11px] font-semibold text-primary">
                             <CircleDashed className="size-3.5" aria-hidden />
-                            قارأتم {Math.round(p!.percent)}٪
+                            قرأت {Math.round(p!.percent)}٪
                           </span>
                         )}
                         {!locked && !isRead && !inProg && !isCurrentResume && isNew && (
@@ -355,6 +362,8 @@ export function WorkTabs({
                         )}
                       </div>
 
+                      <p className="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">{c.titleAr}</p>
+                      </div>
                       <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-muted-foreground">
                         <span>
                           {format === "novel"
@@ -363,6 +372,9 @@ export function WorkTabs({
                         </span>
                         {c.publishedAt && <span>· {formatTimeAgo(c.publishedAt)}</span>}
                       </div>
+                      {isCurrentResume && activeProgress && <div className="mt-2 h-1 overflow-hidden rounded-full bg-border sm:col-span-2" role="progressbar" aria-label="تقدم قراءة الفصل" aria-valuenow={Math.round(activeProgress.percent)} aria-valuemin={0} aria-valuemax={100}>
+                        <div className="h-full bg-primary" style={{ width: activeProgress.percent + "%" }} />
+                      </div>}
                     </div>
                   </Link>
                 </li>
@@ -479,14 +491,7 @@ export function WorkTabs({
             </div>
           </div>
 
-          <div className="rounded-2xl border border-gold/25 bg-gold/5 p-4 text-xs leading-6 text-gold/90">
-            <div className="flex items-start gap-2">
-              <Info className="size-4 shrink-0 text-gold" aria-hidden />
-              <span>
-                هذا عمل خيالي أصلي أُنشئ لأغراض العرض التجريبي للمكتبة — لا يمثل عملًا تجاريًا مرخصًا خارج نطاق التجربة.
-              </span>
-            </div>
-          </div>
+
         </div>
       )}
 
