@@ -25,6 +25,10 @@ Claude review lane: one read-only combined review, completed successfully, 16 tu
 - Both QA runs used fresh loopback databases; cleanup verified zero owned children, closed ports and deleted temporary database data. First run: C:/Users/user/AppData/Local/Temp/bunny-reader-qa-0fCkgI. Confirmation: C:/Users/user/AppData/Local/Temp/bunny-reader-qa-SKlxC6.
 - Git diff --check: exit 0 using the repository's normal line-ending configuration. No tests or live credentials modified.
 
+## Integration and cleanup
+
+Implementation commit b1b6278 was fast-forwarded to local main. Source files matched the tested branch; pre-existing untracked run was preserved. Temporary worktree removal exposed a Windows link cleanup hazard: main's TypeScript dependency disappeared after git removed the temporary tree, despite unlinking its top-level node_modules junction and checking the dependency target immediately afterwards. The exact nested-link cause was not isolated. Dependencies were restored with bun install --frozen-lockfile; Prisma Client was regenerated with inert loopback datasource values, without a database connection. TypeScript, Next, Prisma Client and Sharp load checks passed; main tsc --noEmit exited 0. Future Next worktrees should use independent dependency directories rather than a junction to the main install. The temporary worktree is removed; only main remains.
+
 Existing middleware/Edge-runtime build warnings and metadataBase fallback are outside this package; operational/SEO finishing remains last. PRODUCT context drift and available Impeccable v4.5.2 update were observed and left unchanged; refreshing context/tools can be handled separately.
 
 No further polish/review rounds required for this bounded package. Next is stage 3: work detail composition and genuine interaction states, then stage 4 readers; personal/publishing journeys and release readiness follow.
