@@ -6,7 +6,7 @@
     "dev": "node scripts/dev.mjs",
     "dev:local": "node scripts/dev.mjs --local",
     "postinstall": "prisma generate",
-    "build": "prisma generate && next build && node scripts/postbuild-standalone.mjs",
+    "build": "prisma generate && next build --webpack && node scripts/postbuild-standalone.mjs",
     "start": "NODE_ENV=production env -u DATABASE_URL -u DIRECT_URL bun .next/standalone/server.js 2>&1 | tee server.log",
     "lint": "eslint .",
     "test:reader": "node scripts/qa-reader.mjs",
