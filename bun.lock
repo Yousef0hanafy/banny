@@ -53,6 +53,9 @@
     },
   },
   "trustedDependencies": [
+    "sharp",
+    "@prisma/client",
+    "prisma",
     "@embedded-postgres/linux-x64",
   ],
   "packages": {
