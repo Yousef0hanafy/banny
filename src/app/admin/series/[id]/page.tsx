@@ -2,10 +2,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { ArrowRight, ExternalLink, ListOrdered, Plus } from "lucide-react";
-import { getAdminSeriesById, parseJsonArray } from "@/lib/queries";
+import { getAdminSeriesById, parseJsonArray, currentProfileOrNull, getAssignableStaff } from "@/lib/queries";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChapterWorkflowControls, SeriesForm } from "@/components/admin/admin-client";
+import { TeamAssignmentPanel } from "@/components/admin/team-assignment-panel";
 import { FORMAT_LABELS, STATUS_LABELS, WORKFLOW_LABELS, type Format, type SeriesStatus, type Workflow } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -16,9 +17,14 @@ export default async function AdminSeriesDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const profile = await currentProfileOrNull();
+  const isAdmin = profile?.role === "admin";
   const s = await getAdminSeriesById(id);
   if (!s) notFound();
   const genres = parseJsonArray(s.genresJson);
+
+  const staff = isAdmin ? await getAssignableStaff() : [];
+  const assignedProfileIds = (s as any).assignments?.map((a: any) => a.profileId) ?? [];
 
   const publishedCount = s.chapters.filter((c) => c.workflow === "published").length;
 
@@ -82,7 +88,7 @@ export default async function AdminSeriesDetailPage({
                     <p className="font-medium text-foreground">الفصل {c.number}: {c.titleAr}</p>
                     <p className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
                       {c.isPremiumDemo && (
-                        <Badge variant="secondary" className="border-gold/40 bg-gold/10 text-gold">مقفل تجريبيًا</Badge>
+                        <Badge variant="secondary" className="border-gold/40 bg-gold/10 text-gold">مقفل</Badge>
                       )}
                       {c.publishedAt ? `نُشر ${c.publishedAt.toLocaleDateString("ar-EG")}` : "غير منشور"}
                     </p>
@@ -110,7 +116,9 @@ export default async function AdminSeriesDetailPage({
                         titleAr: c.titleAr,
                         workflow: c.workflow as Workflow,
                         isPremiumDemo: c.isPremiumDemo,
+                        scheduledFor: c.scheduledFor ? c.scheduledFor.toISOString() : null,
                       }}
+                      isAdmin={isAdmin}
                     />
                   </td>
                 </tr>
@@ -123,27 +131,41 @@ export default async function AdminSeriesDetailPage({
         </div>
       </section>
 
-      {/* Metadata editing */}
-      <section aria-label="تعديل بيانات العمل">
-        <h2 className="mb-3 text-lg font-bold">تعديل البيانات</h2>
-        <div className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6">
-          <SeriesForm
-            initial={{
-              id: s.id,
-              titleAr: s.titleAr,
-              titleOriginal: s.titleOriginal ?? "",
-              slug: s.slug,
-              synopsisAr: s.synopsisAr,
-              format: s.format as Format,
-              status: s.status as SeriesStatus,
-              author: s.author,
-              translator: s.translator ?? "",
-              genres,
-              isFeatured: s.isFeatured,
-            }}
+      {/* Team assignment (admin only) */}
+      {isAdmin && (
+        <section className="mb-8" aria-label="إسناد العمل للفريق">
+          <TeamAssignmentPanel
+            seriesId={s.id}
+            staff={staff}
+            assignedProfileIds={assignedProfileIds}
           />
-        </div>
-      </section>
+        </section>
+      )}
+
+      {/* Metadata editing (admin only) */}
+      {isAdmin && (
+        <section aria-label="تعديل بيانات العمل">
+          <h2 className="mb-3 text-lg font-bold">تعديل البيانات</h2>
+          <div className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6">
+            <SeriesForm
+              initial={{
+                id: s.id,
+                titleAr: s.titleAr,
+                titleOriginal: s.titleOriginal ?? "",
+                slug: s.slug,
+                synopsisAr: s.synopsisAr,
+                category: s.category,
+                format: s.format as Format,
+                status: s.status as SeriesStatus,
+                author: s.author,
+                translator: s.translator ?? "",
+                genres,
+                isFeatured: s.isFeatured,
+              }}
+            />
+          </div>
+        </section>
+      )}
     </main>
   );
 }

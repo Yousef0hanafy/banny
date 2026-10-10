@@ -1,11 +1,17 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SeriesForm } from "@/components/admin/admin-client";
+import { currentProfileOrNull } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
-export default function NewSeriesPage() {
+export default async function NewSeriesPage() {
+  const profile = await currentProfileOrNull();
+  if (!profile || profile.role !== "admin") {
+    redirect("/admin?denied=1");
+  }
   return (
     <main className="mx-auto max-w-3xl p-4 pt-6 sm:p-6">
       <Button asChild variant="ghost" size="sm" className="mb-4 gap-1.5 text-muted-foreground">

@@ -1,20 +1,45 @@
+import type { Metadata } from "next";
 import { UsersRound } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { requireRole, getAdminUsers } from "@/lib/queries";
-import { RoleSelect } from "@/components/admin/role-select";
+import { getAccountInvitations } from "@/lib/account-service";
+import { AdminUsersView } from "@/components/accounts/admin-users-view";
 
 export const dynamic = "force-dynamic";
 
-const ROLE_BADGE: Record<string, string> = {
-  admin: "border-primary/40 bg-primary/10 text-primary",
-  editor: "border-gold/40 bg-gold/10 text-gold",
-  reader: "border-border bg-secondary text-muted-foreground",
+export const metadata: Metadata = {
+  title: "المستخدمون والأدوار — لوحة الإدارة",
 };
 
 export default async function AdminUsersPage() {
   const me = await requireRole(["admin"]);
-  const users = await getAdminUsers();
+  const [users, rawInvitations] = await Promise.all([
+    getAdminUsers(),
+    getAccountInvitations(me.id),
+  ]);
+
+  const serializedUsers = users.map((u) => ({
+    id: u.id,
+    email: u.email,
+    nickname: u.nickname,
+    role: u.role,
+    avatarSeed: u.avatarSeed,
+    createdAt: u.createdAt instanceof Date ? u.createdAt.toISOString() : String(u.createdAt),
+    emailVerifiedAt: u.emailVerifiedAt ? (u.emailVerifiedAt instanceof Date ? u.emailVerifiedAt.toISOString() : String(u.emailVerifiedAt)) : null,
+    disabledAt: u.disabledAt ? (u.disabledAt instanceof Date ? u.disabledAt.toISOString() : String(u.disabledAt)) : null,
+    _count: u._count,
+  }));
+
+  const serializedInvitations = rawInvitations.map((i) => ({
+    id: i.id,
+    email: i.email,
+    role: i.role,
+    expiresAt: i.expiresAt instanceof Date ? i.expiresAt.toISOString() : String(i.expiresAt),
+    status: i.status,
+  }));
+
+  const isLocalMailboxAvailable =
+    process.env.ACCOUNT_MAIL_MODE === "local" &&
+    (process.env.BUNNY_LOCAL_PREVIEW === "1" || Boolean(process.env.READER_QA_DATABASE_NAME));
 
   return (
     <main className="mx-auto max-w-4xl p-4 pt-6 sm:p-6">
@@ -23,33 +48,17 @@ export default async function AdminUsersPage() {
           <UsersRound className="size-6 text-primary" aria-hidden />
           المستخدمون والأدوار
         </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          شاشة حصرية للمدير — تغيير الدور يسري فورًا على الجلسة التالية للمستخدم.
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          شاشة حصرية للمدير — تغيير الدور يسري فورًا على الجلسة التالية للمستخدم. تعطيل الحساب يلغي وصوله فورًا.
         </p>
       </header>
 
-      <ul className="space-y-2.5">
-        {users.map((u) => (
-          <li key={u.id} className="flex flex-wrap items-center gap-3 rounded-2xl border border-border/60 bg-card p-4">
-            <Avatar className="size-10 border border-border">
-              <AvatarFallback className="bg-primary/15 text-primary font-semibold">{u.nickname.slice(0, 1)}</AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <p className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                {u.nickname}
-                <Badge variant="secondary" className={ROLE_BADGE[u.role] ?? ""}>
-                  {u.role === "admin" ? "مدير" : u.role === "editor" ? "محرر" : "قارئ"}
-                </Badge>
-              </p>
-              <p className="text-[11px] text-muted-foreground" dir="ltr">{u.email}</p>
-            </div>
-            <p className="hidden text-[11px] text-muted-foreground sm:block">
-              {u._count.libraryItems} مكتبة · {u._count.comments} تعليق · {u._count.readingProgress} تقدم
-            </p>
-            <RoleSelect profileId={u.id} role={u.role as "reader"} isSelf={u.id === me.id} />
-          </li>
-        ))}
-      </ul>
+      <AdminUsersView
+        users={serializedUsers}
+        invitations={serializedInvitations}
+        currentAdminId={me.id}
+        isLocalMailboxAvailable={isLocalMailboxAvailable}
+      />
     </main>
   );
 }

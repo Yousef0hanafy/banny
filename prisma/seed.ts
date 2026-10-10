@@ -5,7 +5,7 @@
  * Analytics events are seeded only into an empty table (guarded below), so running
  * the seed twice produces identical row counts.
  */
-import { PrismaClient, Prisma, UserRole, SeriesFormat, SeriesStatus, ChapterWorkflow, ReadingDirection, LibraryShelf, CommentStatus } from "@prisma/client";
+import { PrismaClient, Prisma, UserRole, SeriesCategory, SeriesFormat, SeriesStatus, ChapterWorkflow, ReadingDirection, LibraryShelf, CommentStatus } from "@prisma/client";
 import { scryptSync, randomBytes, timingSafeEqual } from "crypto";
 import { SERIES, COLLECTIONS, DEMO_ACCOUNTS, DEMO_PROGRESS, hashSeed, mulberry32 } from "../scripts/release-a-data.mjs";
 import { SERIES_B, COMMENTS, RATINGS, REPORTS, LIBRARY_SEED } from "../scripts/release-b-data.mjs";
@@ -31,14 +31,17 @@ async function seedProfiles() {
   for (const acc of DEMO_ACCOUNTS) {
     await db.profile.upsert({
       where: { email: acc.email },
-      update: { nickname: acc.nickname, role: acc.role as UserRole },
+      update: { nickname: acc.nickname, role: acc.role as UserRole, emailVerifiedAt: new Date(), disabledAt: null },
       create: {
         email: acc.email,
         nickname: acc.nickname,
         role: acc.role as UserRole,
         passwordHash: hashPassword(acc.password),
         avatarSeed: `seed-${hashSeed(acc.email) % 6}`,
-        bio: "حساب تجريبي ضمن النسخة التجريبية من مكتبة باني.",
+        bio: "",
+        emailVerifiedAt: new Date(),
+        disabledAt: null,
+        authVersion: 0,
       },
     });
   }
@@ -65,7 +68,9 @@ async function seedSeries() {
       displayOrder: i,
       reads: s.reads,
     };
-    const series = await db.series.upsert({ where: { slug: s.slug }, update: data, create: data });
+    // Re-seeding demo text must not erase an administrator's explicit category.
+    const category = (s as { category?: SeriesCategory }).category ?? (s.format === "manga" ? SeriesCategory.manga : s.format === "novel" ? SeriesCategory.novel : null);
+    const series = await db.series.upsert({ where: { slug: s.slug }, update: data, create: { ...data, category } });
 
     let publishedAt = 40 - i * 3;
     for (const ch of s.chapters) {

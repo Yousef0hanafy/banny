@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChapterForm } from "@/components/admin/admin-client";
+import { getAdminSeries, currentProfileOrNull } from "@/lib/queries";
 import type { Format } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -14,10 +14,9 @@ export default async function NewChapterPage({
 }) {
   const sp = await searchParams;
   const preferred = typeof sp.series === "string" ? sp.series : undefined;
-  const seriesList = await db.series.findMany({
-    orderBy: { titleAr: "asc" },
-    select: { id: true, titleAr: true, format: true },
-  });
+  const profile = await currentProfileOrNull();
+  const isAdmin = profile?.role === "admin";
+  const seriesList = await getAdminSeries({});
   const options = seriesList.map((s) => ({
     id: s.id,
     titleAr: s.titleAr,
@@ -37,12 +36,18 @@ export default async function NewChapterPage({
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">فصل جديد</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          يُنشأ الفصل مع صفحات/لوحات تجريبية مجردة — رفع المحتوى الحقيقي يعمل في إصدار لاحق.
+          يمكن إدخال نص الرواية هنا. للفصول المصوّرة، تُجهّز صفحات تلقائيًا؛ رفع ملفات الفصل غير متاح حاليًا.
         </p>
       </header>
-      <div className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6">
-        <ChapterForm seriesOptions={options} />
-      </div>
+      {options.length === 0 ? (
+        <div className="rounded-2xl border border-border/60 bg-card p-8 text-center text-sm text-muted-foreground">
+          لا توجد أعمال مسندة إليك لإنشاء فصول لها. يرجى التواصل مع إدارة الموقع لإسناد العمل إليك أولاً.
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-border/60 bg-card p-5 sm:p-6">
+          <ChapterForm seriesOptions={options} isAdmin={isAdmin} />
+        </div>
+      )}
     </main>
   );
 }

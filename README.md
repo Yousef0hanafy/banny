@@ -1,11 +1,41 @@
 # مكتبة باني — Bunny Library
 
+> **Existing-cloud release:** use [the release preflight guide](docs/release-preflight.md) and [2026-10-11 release evidence](docs/superpowers/reports/2026-10-11-release-preflight.md). The demo setup/seed instructions below are for disposable development databases, never the existing production dataset. Public launch also requires production account, storage and environment configuration described in the report.
+
 > Your personal Arabic library for stories worth getting lost in.
 > **Release E — Community, Notifications, Search & Studio** (see `docs/RELEASE_PLAN.md` + `docs/RELEASE_E_REPORT.md`)
 
 An Arabic-first, dark-mode, premium reading platform prototype for manga, webtoons, and novels — reader-first, RTL-native, fully functional, seeded with 100% original fictional content.
 
 **Demo notice (binding):** this is a product prototype. All series, chapters, covers, names, prose, and comments are original fictional content created for the demo. Nothing is licensed, official, or real. No payments. No downloads. No purchase flows.
+
+## Local preview (Windows, PowerShell or Git Bash)
+
+```sh
+bun run dev
+```
+
+Open http://localhost:3000. Without a configured PostgreSQL URL in `.env.local`, this command creates a loopback-only PostgreSQL database, applies migrations and seeds demo content on the first run. Saved progress and library changes persist in the gitignored `.local-preview/` directory; later runs do not reseed them. Stop with Ctrl+C. Initial setup and the first compilation of each route can take a minute.
+
+Reader demo: `reader@bunny.demo` / `bunny-reader-2026`. Admin demo: `admin@bunny.demo` / `bunny-admin-2026`.
+
+If `.env.local` contains a PostgreSQL URL, `dev` uses that configured database without migrating or seeding it. Use `bun run dev:local` to explicitly choose the isolated local demo database. Neither command needs Bash `env`, `tee` or a separate PostgreSQL installation. The launcher uses Next's webpack development server.
+
+## Reader Foundation regression QA
+
+```sh
+bun install --frozen-lockfile
+node node_modules/@playwright/test/cli.js install chromium
+bun run test:reader
+```
+
+This Windows/macOS/Linux runner creates a fresh UTF-8 embedded PostgreSQL cluster and a uniquely named database, both bound to loopback. It deploys the existing migrations, seeds the original demo and small reader fixtures, builds Next directly, copies static/public assets with Node APIs into the generated standalone app, and starts its `server.js` on 127.0.0.1. It checks the reader routes and runs Chromium at desktop and 390px mobile sizes. The production build avoids on-demand dev recompilation during browser assertions. It supplies generated database/auth settings only to its children, without the `with-env` wrapper or reading/writing `.env.local`. It never attaches to an existing database or server. The browser fixtures refuse to run without the runner's isolated database identity.
+
+The suite covers series-scoped live navigation, update links for all three formats, matching chapter progress, malformed storage, shortened manga chapters, authenticated server resume and timestamp precedence, scroll resume after novel preferences, reloads, subsequent scrolling, real next-chapter links, and locked/empty content. Stalled-session tests verify restoration before session resolution, no writes while loading, preserved user movement and resumed persistence afterward. Each chapter mounts its own reader state. The existing local mirror remains one latest reading record per series.
+
+Each invocation prints an external temporary artifact directory containing `runner.log`, stage logs, `results.json`, failure traces/screenshots, and successful desktop/mobile reader screenshots. `cleanup.json` records the generated database name, zero remaining owned children, closed database/app ports and removed database data. Logs remain available after both success and failure. Shutdown is bounded, uses the exact owned cluster directory and child PIDs, and verifies loopback ports are closed before removing data. Any setup, test or cleanup failure returns nonzero.
+
+To narrow a regression run, pass Playwright arguments, for example `bun run test:reader --project=desktop --grep "manga: guest"`. For the complete package gates, run the full reader command, `bun run lint`, `node node_modules/typescript/bin/tsc --noEmit --incremental false`, `node node_modules/prisma/build/index.js generate`, and `node node_modules/next/dist/bin/next build`. Generate/build can use harmless loopback placeholders when database variables are required. Next's direct build command excludes the historical shell copy stage in the package build script.
 
 ---
 
@@ -194,12 +224,12 @@ into an empty `AnalyticsEvent` table; demo progress rows are upserted).
 | Guarantee | Enforced by | Where |
 |---|---|---|
 | Authentication (who you are) | NextAuth credentials + JWT sessions (scrypt hashes) | **Server-side** |
-| Role vocabulary (`reader\|editor\|admin`) | Native Postgres enum `user_role` | **Database-side** |
+| Role vocabulary (`reader\|contributor\|editor\|admin`) | Native Postgres enum `user_role` | **Database-side** |
 | Content workflow (`draft\|review\|published`), format, status, reading direction, event type | Native Postgres enums | **Database-side** |
-| Admin authorization (who may write) | 3 application layers: middleware → admin layout guard → `requireRole` inside every admin Server Action/query | **Server-side** (no RLS) |
+| Staff authorization & scoped workspaces (who may write) | Fresh DB profile guards in admin layout + `requireRole` + per-series assignment checks in Server Actions/queries | **Server-side** (no RLS) |
 | Public users only see published chapters | `workflow='published'` filters in every public query | **Server-side** (no RLS) |
 | Reading progress belongs to its owner | profile/chapter scoping in queries + Server Actions | **Server-side** (no RLS) |
-| One chapter number per series; one page index per chapter; one progress row per (profile, chapter); unique slugs/emails | Unique constraints / composite unique indexes | **Database-side** |
+| One assignment per (profile, series); one chapter number per series; one page index per chapter; one progress row per (profile, chapter); unique slugs/emails | Unique constraints / composite unique indexes | **Database-side** |
 | Referential integrity (orphan pages/progress impossible; deleting a series cascades; analytics survive author deletion via `SET NULL`) | Foreign keys with explicit delete rules | **Database-side** |
 | Required fields & defaults | NOT NULL + column defaults | **Database-side** |
 | Input validation before any write | zod schemas in Server Actions | **Server-side** |
@@ -220,9 +250,11 @@ See [Database — Neon PostgreSQL](#database--neon-postgresql-runtime) above: `.
 
 | Role | Email | Password | Can do |
 |---|---|---|---|
-| Admin | `admin@bunny.demo` | `bunny-admin-2026` | Full admin panel incl. publish workflow |
+| Admin | `admin@bunny.demo` | `bunny-admin-2026` | Full admin panel, global series/collections/users, team assignments, publication |
+| Editor | `editor@bunny.demo` | `bunny-editor-2026` | Draft/review chapter preparation on assigned series (requires admin assignment in C1) + comment moderation queue |
 | Reader | `reader@bunny.demo` | `bunny-reader-2026` | Synced reading progress (seeded mid-chapter) |
-| Editor | `editor@bunny.demo` | `bunny-editor-2026` | Content management (no admin-only screens) |
+
+*Note on staff roles in C1:* The database seed retains the three baseline accounts above. The `contributor` role is granted by an admin via `/admin/users`. Contributors and editors work strictly within series assigned to them by an admin in `/admin/series/[id]`. C1 interim boundaries apply: final publication authority remains with admins, and invitation/revision workflows remain deferred to C2.
 
 Guests can browse and read; their progress persists in `localStorage` only (by design — DB-backed library is Release B).
 
@@ -370,3 +402,33 @@ any prior deployment from the dashboard.
 - Monitoring is placeholder-only by design (no external calls) — activation notes in
   `src/lib/analytics.ts`.
 - Source-document reconciliation stays post-hoc (FD-10).
+
+## Editorial studio — October 2026
+
+The current chapter workflow is at `/studio`. Contributors prepare assigned chapters;
+editors review, recommend approval or return them with a reason; administrators approve
+the exact saved version, publish, schedule, cancel schedules and withdraw published
+chapters with a recorded reason. Current roles and assignments are checked inside the
+database transaction. Stale forms must reload before changing a newer version.
+
+Published chapters remain readable while a separate revision is being edited. Editing
+reviewed or approved content clears its approval and schedule. Publication replaces the
+public chapter atomically, preserves its ID and reading progress, and creates follower
+notifications at publication time. Legacy direct-publish and bulk-workflow controls are
+disabled; use the studio.
+
+Scheduling stores an approved revision and a future timestamp. Local preview has a
+manual administrator button to publish due chapters. **No external scheduler is active.**
+For a deployment, configure a private nonempty `EDITORIAL_CRON_SECRET` and arrange an
+external scheduler to POST `/api/editorial/publish-due` with an `Authorization: Bearer`
+header containing that secret. GET and anonymous requests cannot publish. Each request
+processes at most 20 due approved revisions; repeat as needed. Concurrent calls do not
+publish the same revision twice.
+
+This package does not add file uploads, PDF import, protected file delivery, team account
+provisioning or versioned series metadata. Existing `/public` chapter images remain public;
+the editor can only reorder or remove assets already belonging to that chapter.
+
+Start the saved loopback preview with `bun run dev:local`. It applies migrations only to
+its local database and retains previously seeded data. Production database deployment
+and external cron activation are separate operator steps.

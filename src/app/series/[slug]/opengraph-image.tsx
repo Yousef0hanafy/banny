@@ -177,7 +177,7 @@ export default async function OgImage({ params }: { params: Promise<{ slug: stri
 
         {/* footer */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexDirection: "row-reverse" }}>
-          <span style={{ fontSize: 22, color: "#6F6A85" }}>{ar("عرض تجريبي بمحتوى خيالي أصلي")}</span>
+          <span style={{ fontSize: 22, color: "#6F6A85" }}>{ar("مكتبة باني")}</span>
           <span style={{ fontSize: 22, color: "#6F6A85" }}>{ar("اقرأ على مهلك — بلا إعلانات")}</span>
         </div>
       </div>

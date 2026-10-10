@@ -1,89 +1,63 @@
 "use client";
 
-import { useOptimistic, useTransition } from "react";
+import { useId, useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { BookmarkCheck, BookMarked, CheckCheck, Clock3, Plus } from "lucide-react";
+import { Bookmark, BookmarkCheck, BookMarked, CheckCheck, Clock3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { setLibraryItem } from "@/lib/actions";
 import { SHELF_LABELS, type Shelf } from "@/lib/constants";
 
 const SHELF_ICONS = { reading: Clock3, plan: BookMarked, finished: CheckCheck } as const;
 
-/**
- * Personal-library control (Release B). Guests are sent to login;
- * signed-in readers add / switch shelf / remove via the Server Action.
- */
-export function LibraryButton({ slug, initialShelf }: { slug: string; initialShelf: Shelf | null }) {
+export function LibraryButton({ slug, initialShelf, compact = false }: { slug: string; initialShelf: Shelf | null; compact?: boolean }) {
   const { status } = useSession();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [shelf, setShelf] = useOptimistic(initialShelf);
-
-  if (status === "unauthenticated") {
-    return (
-      <Button
-        size="lg"
-        variant="outline"
-        className="gap-2 border-border text-muted-foreground"
-        onClick={() => router.push("/login")}
-      >
-        <Plus className="size-4" aria-hidden />
-        أضف إلى مكتبتي
-      </Button>
-    );
-  }
-
+  const [error, setError] = useState<string | null>(null);
+  const errorId = useId();
+  const label = shelf ? SHELF_LABELS[shelf] : "أضف إلى مكتبتي";
+  const Icon = shelf ? SHELF_ICONS[shelf] : Bookmark;
   const apply = (next: Shelf | null) => {
+    setError(null);
     startTransition(async () => {
       setShelf(next);
-      await setLibraryItem({ seriesSlug: slug, shelf: next });
-      router.refresh();
+      try {
+        const result = await setLibraryItem({ seriesSlug: slug, shelf: next });
+        if (!result.ok) { setError("تعذّر حفظ التغيير. حاول مرة أخرى."); return; }
+        router.refresh();
+      } catch { setError("تعذّر حفظ التغيير. تحقق من اتصالك وحاول مرة أخرى."); }
     });
   };
-
-  if (shelf) {
-    const Icon = SHELF_ICONS[shelf];
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            size="lg"
-            variant="outline"
-            disabled={pending}
-            className="gap-2 border-primary/40 bg-primary/10 text-primary hover:bg-primary/15"
-          >
-            <Icon className="size-4" aria-hidden />
-            {SHELF_LABELS[shelf]}
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-52">
-          {(Object.keys(SHELF_LABELS) as Shelf[]).map((s) => (
-            <DropdownMenuItem key={s} className="cursor-pointer" onClick={() => apply(s)}>
-              {SHELF_LABELS[s]}
-              {s === shelf && <BookmarkCheck className="size-4 ms-auto text-primary" aria-hidden />}
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="cursor-pointer text-danger focus:text-danger" onClick={() => apply(null)}>
-            إزالة من مكتبتي
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    );
-  }
-
-  return (
-    <Button size="lg" variant="outline" disabled={pending} className="gap-2 border-border" onClick={() => apply("reading")}>
-      <Plus className="size-4" aria-hidden />
-      أضف إلى مكتبتي
+  const button = (
+    <Button size="lg" variant="outline" disabled={pending || status === "loading"}
+      aria-label={label} aria-describedby={error ? errorId : undefined}
+      className={"h-11 gap-2 " + (shelf ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15" : "border-border") + " " + (compact ? "w-11 px-0 lg:w-auto lg:px-4" : "")}
+      onClick={shelf && status === "authenticated" ? undefined : () => status === "unauthenticated" ? router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`) : apply("reading")}>
+      <Icon className="size-4" aria-hidden />
+      <span className={compact ? "hidden lg:inline" : ""}>{label}</span>
     </Button>
+  );
+  return (
+    <div className="relative shrink-0">
+      {shelf && status === "authenticated" ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>{button}</DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-52">
+            {(Object.keys(SHELF_LABELS) as Shelf[]).map(s => (
+              <DropdownMenuItem key={s} className="min-h-11 cursor-pointer" onClick={() => apply(s)}>
+                {SHELF_LABELS[s]}
+                {s === shelf && <BookmarkCheck className="ms-auto size-4 text-primary" aria-hidden />}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="min-h-11 cursor-pointer text-danger focus:text-danger" onClick={() => apply(null)}>إزالة من مكتبتي</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : button}
+      {error && <p id={errorId} role="alert" className="absolute end-0 top-full z-20 mt-2 w-56 rounded-lg border border-danger/40 bg-card p-3 text-xs leading-6 text-danger">{error}</p>}
+    </div>
   );
 }

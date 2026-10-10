@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ExternalLink, Pencil, Plus } from "lucide-react";
-import { getAdminSeries } from "@/lib/queries";
+import { getAdminSeries, currentProfileOrNull } from "@/lib/queries";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SeriesFilters } from "@/components/admin/admin-client";
@@ -16,21 +16,27 @@ export default async function AdminSeriesPage({
 }) {
   const sp = await searchParams;
   const get = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
+  const profile = await currentProfileOrNull();
+  const isAdmin = profile?.role === "admin";
   const series = await getAdminSeries({ q: get("q"), format: get("format"), status: get("status") });
 
   return (
     <main className="mx-auto max-w-6xl p-4 pt-6 sm:p-6">
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">الأعمال</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{series.length} عمل في مكتبة العرض.</p>
+          <h1 className="text-2xl font-bold text-foreground">{isAdmin ? "الأعمال" : "أعمالي المسندة"}</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {isAdmin ? `${series.length} عمل في مكتبة العرض.` : `${series.length} عمل مسند إليك.`}
+          </p>
         </div>
-        <Button asChild size="sm" className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90">
-          <Link href="/admin/series/new">
-            <Plus className="size-4" aria-hidden />
-            عمل جديد
-          </Link>
-        </Button>
+        {isAdmin && (
+          <Button asChild size="sm" className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90">
+            <Link href="/admin/series/new">
+              <Plus className="size-4" aria-hidden />
+              عمل جديد
+            </Link>
+          </Button>
+        )}
       </header>
 
       <div className="mb-4">
@@ -74,7 +80,7 @@ export default async function AdminSeriesPage({
                 <td className="hidden p-3 tabular-nums text-muted-foreground md:table-cell">{s.reads.toLocaleString("ar-EG")}</td>
                 <td className="p-3">
                   <div className="flex items-center gap-1.5">
-                    <Button asChild variant="ghost" size="icon" className="size-8 text-muted-foreground" title="تعديل البيانات">
+                    <Button asChild variant="ghost" size="icon" className="size-8 text-muted-foreground" title={isAdmin ? "تعديل البيانات" : "عرض العمل والفصول"}>
                       <Link href={`/admin/series/${s.id}`}>
                         <Pencil className="size-4" aria-hidden />
                       </Link>

@@ -2,15 +2,14 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BookOpen, CheckCircle2, CircleDashed, Lock, Star, UserRound, Languages, Tag } from "lucide-react";
+import { BookOpen, Star, UserRound, Languages } from "lucide-react";
 import { SiteHeader, SiteFooter, BottomNav } from "@/components/library/chrome";
-import { Rail, SeriesCardItem, SeriesMetaBadges } from "@/components/library/series-card";
-import { SeriesCTA } from "@/components/library/series-cta";
-import { LibraryButton } from "@/components/library/library-button";
-import { ShareButton } from "@/components/library/share-button";
+import { Rail, SeriesCardItem } from "@/components/library/series-card";
 import { RatingWidget } from "@/components/community/rating-widget";
 import { CommentsSection } from "@/components/community/comments-section";
-import { CalendarClock } from "lucide-react";
+import { WorkHeroActions } from "@/components/library/work-hero-actions";
+import { WorkSynopsis } from "@/components/library/work-synopsis";
+import { WorkTabs, type ChapterItemView } from "@/components/library/work-tabs";
 import {
   currentProfileOrNull,
   getProgressMap,
@@ -18,9 +17,19 @@ import {
   getSeriesBySlug,
   getVisibleComments,
   getUserRating,
+  liveChapterWhere,
   parseJsonArray,
 } from "@/lib/queries";
-import type { Format } from "@/lib/constants";
+import {
+  type Format,
+  type SeriesStatus,
+  CATEGORY_LABELS,
+  FORMAT_LABELS,
+  STATUS_LABELS,
+  isCategory,
+  isSeriesStatus,
+  type Shelf,
+} from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -44,16 +53,6 @@ export async function generateMetadata({
   };
 }
 
-function timeAgoAr(date: Date) {
-  const diff = Date.now() - date.getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days < 1) return "اليوم";
-  if (days < 30) return `قبل ${days} يوم`;
-  const months = Math.floor(days / 30);
-  if (months < 12) return `قبل ${months} شهر`;
-  return `قبل ${Math.floor(months / 12)} سنة`;
-}
-
 export default async function SeriesDetailPage({
   params,
 }: {
@@ -65,9 +64,9 @@ export default async function SeriesDetailPage({
 
   const profile = await currentProfileOrNull();
   const progressMap = await getProgressMap(profile?.id ?? null, s.id);
-  const related = await getRelatedSeries(s.id, parseJsonArray(s.genresJson));
   const genres = parseJsonArray(s.genresJson);
   const tags = parseJsonArray(s.tagsJson);
+  const related = await getRelatedSeries(s.id, genres);
 
   const [comments, userRating, shelfRow] = await Promise.all([
     getVisibleComments(s.id, null),
@@ -82,263 +81,145 @@ export default async function SeriesDetailPage({
       : Promise.resolve(null),
   ]);
 
-  // server-side progress for the signed-in reader (most recent chapter with progress)
+  // Server-side progress for signed-in reader
   let serverProgress: { chapterNumber: number; pageIndex: number; percent: number } | null = null;
   if (profile) {
     const row = await import("@/lib/db").then(({ db }) =>
       db.readingProgress.findFirst({
-        where: { profileId: profile.id, seriesId: s.id, completed: false },
+        where: { profileId: profile.id, seriesId: s.id, completed: false, percent: { gt: 0, lt: 100 }, chapter: { ...liveChapterWhere(), isPremiumDemo: false } },
         orderBy: { updatedAt: "desc" },
         include: { chapter: { select: { number: true } } },
       })
     );
-    if (row)
+    if (row) {
       serverProgress = {
         chapterNumber: row.chapter.number,
         pageIndex: row.pageIndex,
         percent: row.percent,
       };
+    }
   }
 
   const published = s.publishedChapters;
-  const isLocked = (c: (typeof published)[number]) => c.isPremiumDemo;
-  const isRead = (num: number) => {
-    const p = progressMap.get(published.find((c) => c.number === num)?.id ?? "");
-    return p?.completed || (p?.percent ?? 0) >= 99;
-  };
-  const inProgress = (num: number) => {
-    const p = progressMap.get(published.find((c) => c.number === num)?.id ?? "");
-    return p && !p.completed && p.percent > 0;
-  };
+  const scheduled = s.scheduledChapters;
+
+  // Title category logic:
+  // Uses s.category from returned Prisma Series.
+  // Legacy unclassified webtoon remains null and is NOT guessed as manhwa.
+  const categoryLabel = s.category && isCategory(s.category) ? CATEGORY_LABELS[s.category] : null;
+  const formatLabel = FORMAT_LABELS[s.format as Format] ?? s.format;
+  const statusLabel = isSeriesStatus(s.status) ? STATUS_LABELS[s.status as SeriesStatus] : s.status;
+  const primaryGenre = genres[0] ?? null;
+
+  const publishedView: ChapterItemView[] = published.map((c) => ({
+    id: c.id,
+    number: c.number,
+    titleAr: c.titleAr,
+    isPremiumDemo: c.isPremiumDemo,
+    publishedAt: c.publishedAt,
+    scheduledFor: c.scheduledFor,
+    pageCount: c.pageCount,
+    novelWords: c.novelWords,
+  }));
+
+  const scheduledView: ChapterItemView[] = scheduled.map((c) => ({
+    id: c.id,
+    number: c.number,
+    titleAr: c.titleAr,
+    isPremiumDemo: c.isPremiumDemo,
+    publishedAt: c.publishedAt,
+    scheduledFor: c.scheduledFor,
+    pageCount: c.pageCount,
+    novelWords: c.novelWords,
+  }));
+
+  const progressEntries: [string, { pageIndex: number; percent: number; completed: boolean }][] = [
+    ...progressMap.entries(),
+  ];
+
+  const initialShelf = (shelfRow?.shelf as Shelf) ?? null;
+  const hasCover = Boolean(s.coverPath.trim());
+
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col bg-background">
       <SiteHeader />
-      <main className="flex-1 pb-20 md:pb-0">
-        {/* Hero */}
-        <div className="relative border-b border-border/50 bg-library-glow">
-          <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
-            <div className="flex flex-col gap-6 sm:flex-row">
-              <div className="relative mx-auto h-64 w-44 shrink-0 overflow-hidden rounded-2xl border border-border/70 shadow-2xl sm:mx-0 sm:h-72 sm:w-48">
-                <Image
-                  src={s.coverPath || "/art/covers/warden-of-the-twilight-gate.webp"}
-                  alt={`غلاف ${s.titleAr}`}
-                  fill
-                  sizes="192px"
-                  className="object-cover"
-                  priority
-                />
+      <main className="flex-1 pb-36 sm:pb-20 md:pb-12">
+        <div className="mx-auto max-w-6xl px-4 py-5 sm:px-6 lg:py-6">
+          <div className="grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+            <aside aria-label="بيانات العمل والتأليف" className="hidden space-y-5 lg:block">
+              <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-border">
+                {hasCover ? <Image src={s.coverPath} alt={'غلاف ' + s.titleAr} fill sizes="260px" className="object-cover" priority /> : <div role="img" aria-label="لا يوجد غلاف لهذا العمل" className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-card text-muted-foreground"><BookOpen className="size-10" aria-hidden /><span className="text-xs">الغلاف غير متاح</span></div>}
               </div>
-              <div className="min-w-0 flex-1 text-center sm:text-start">
-                <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{s.titleAr}</h1>
-                {s.titleOriginal && (
-                  <p className="mt-1 text-sm text-muted-foreground" dir="ltr">
-                    {s.titleOriginal}
-                  </p>
-                )}
-                <div className="mt-3 flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                  <SeriesMetaBadges format={s.format as Format} status={s.status as "ongoing"} />
-                  <span className="flex items-center gap-1 rounded-md border border-gold/30 bg-gold/10 px-2 py-0.5 text-xs font-semibold text-gold">
-                    <Star className="size-3.5 fill-gold" aria-hidden />
-                    {s.ratingAvg.toFixed(1)}
-                    <span className="font-normal text-muted-foreground">({s.ratingCount})</span>
-                  </span>
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <BookOpen className="size-3.5" aria-hidden />
-                    {published.length} فصل منشور
-                  </span>
+              <div className="flex flex-wrap gap-2">
+                {categoryLabel && <Link href={'/explore?category=' + s.category} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-xs hover:text-primary">{categoryLabel}</Link>}
+                {primaryGenre && <Link href={'/explore?genre=' + encodeURIComponent(primaryGenre)} className="inline-flex min-h-11 items-center rounded-lg border border-border px-3 text-xs hover:text-primary">{primaryGenre}</Link>}
+                <span className={'inline-flex items-center rounded-lg border px-3 text-xs ' + (s.status === 'ongoing' ? 'border-success/30 text-success' : 'border-border text-muted-foreground')}>{statusLabel}</span>
+              </div>
+              <WorkSynopsis synopsis={s.synopsisAr} />
+              <dl className="space-y-3 border-t border-border pt-4 text-sm">
+                <div className="flex flex-wrap justify-between gap-2">
+                  <dt className="flex items-center gap-2 text-muted-foreground"><UserRound className="size-4" aria-hidden /> المؤلف</dt>
+                  <dd className="max-w-full break-words font-medium">{s.author}</dd>
                 </div>
-
-                <p className="mx-auto mt-4 max-w-2xl text-sm leading-8 text-foreground/90 text-balance-ar sm:mx-0">
-                  {s.synopsisAr}
-                </p>
-
-                <dl className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-xs text-muted-foreground sm:justify-start">
-                  <div className="flex items-center gap-1.5">
-                    <UserRound className="size-3.5" aria-hidden />
-                    <span>تأليف: <span className="text-foreground/90">{s.author}</span></span>
-                  </div>
-                  {s.translator && (
-                    <div className="flex items-center gap-1.5">
-                      <Languages className="size-3.5" aria-hidden />
-                      <span>ترجمة: <span className="text-foreground/90">{s.translator}</span></span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-1.5">
-                    <Tag className="size-3.5" aria-hidden />
-                    <span>{tags.join(" · ")}</span>
-                  </div>
-                </dl>
-
-                <div className="mt-5 flex flex-wrap justify-center gap-2.5 sm:justify-start">
-                  <SeriesCTA
-                    slug={s.slug}
-                    format={s.format as Format}
-                    serverProgress={serverProgress}
-                    chapters={s.publishedChapters.map((c) => ({ number: c.number, isPremiumDemo: c.isPremiumDemo }))}
-                    titleAr={s.titleAr}
-                  >
-                    <LibraryButton slug={s.slug} initialShelf={(shelfRow?.shelf as "reading" | "plan" | "finished") ?? null} />
-                  </SeriesCTA>
-                  <ShareButton slug={s.slug} titleAr={s.titleAr} />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="grid gap-8 py-8 lg:grid-cols-[1fr_280px]">
-            {/* Chapter list */}
-            <section aria-label="قائمة الفصول">
-              <h2 className="mb-3 text-lg font-bold">الفصول</h2>
-              <ol className="divide-y divide-border/60 overflow-hidden rounded-2xl border border-border/60 bg-card">
-                {[...published].reverse().map((c) => {
-                  const locked = isLocked(c);
-                  const read = isRead(c.number);
-                  const prog = inProgress(c.number);
-                  const row = (
-                    <>
-                      <span
-                        className={`grid size-10 shrink-0 place-items-center rounded-xl border text-sm font-bold ${
-                          locked
-                            ? "border-gold/40 bg-gold/10 text-gold"
-                            : read
-                              ? "border-success/30 bg-success/10 text-success"
-                              : prog
-                                ? "border-primary/40 bg-primary/10 text-primary"
-                                : "border-border bg-secondary/50 text-muted-foreground"
-                        }`}
-                        aria-hidden
-                      >
-                        {locked ? <Lock className="size-4" /> : c.number}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-2">
-                          <span className="truncate text-sm font-medium text-foreground">
-                            الفصل {c.number}: {c.titleAr}
-                          </span>
-                          {locked && (
-                            <span className="shrink-0 rounded-md bg-gold/15 px-1.5 py-0.5 text-[10px] font-medium text-gold">
-                              فصل تجريبي مقفل
-                            </span>
-                          )}
-                        </span>
-                        <span className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
-                          {s.format === "novel"
-                            ? `${c.novelWords} كلمة تقريبًا`
-                            : `${c.pageCount} ${s.format === "manga" ? "صفحة" : "لوحة"}`}
-                          {c.publishedAt && <span>· {timeAgoAr(c.publishedAt)}</span>}
-                          {read && <span className="text-success">· تمت القراءة</span>}
-                          {prog && <span className="text-primary">· قارأتم {Math.round(progressMap.get(c.id)?.percent ?? 0)}٪</span>}
-                        </span>
-                      </span>
-                      {read ? (
-                        <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden />
-                      ) : prog ? (
-                        <CircleDashed className="size-4 shrink-0 text-primary" aria-hidden />
-                      ) : null}
-                    </>
-                  );
-                  return (
-                    <li key={c.id}>
-                      {locked ? (
-                        <Link
-                          href={`/read/${s.format}/${s.slug}/${c.number}`}
-                          className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-accent/40"
-                        >
-                          {row}
-                        </Link>
-                      ) : (
-                        <Link
-                          href={`/read/${s.format}/${s.slug}/${c.number}`}
-                          className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-accent/40"
-                        >
-                          {row}
-                        </Link>
-                      )}
-                    </li>
-                  );
-                })}
-              </ol>
-              {published.length === 0 && (
-                <p className="rounded-2xl border border-dashed border-border/70 p-8 text-center text-sm text-muted-foreground">
-                  لا فصول منشورة بعد — العمل قيد التحضير.
-                </p>
-              )}
-
-              {/* Scheduled chapters (Release B scheduler, FD-5) */}
-              {s.scheduledChapters.length > 0 && (
-                <section aria-label="فصول مجدولة" className="mt-5">
-                  <h3 className="mb-2.5 flex items-center gap-1.5 text-sm font-bold text-muted-foreground">
-                    <CalendarClock className="size-4" aria-hidden />
-                    فصول مجدولة
-                  </h3>
-                  <ol className="divide-y divide-border/60 overflow-hidden rounded-2xl border border-dashed border-border/60 bg-card/50">
-                    {s.scheduledChapters.map((c) => (
-                      <li key={c.id} className="flex items-center gap-3 px-4 py-3.5 opacity-80" aria-label="ينشر قريبًا">
-                        <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-gold/40 bg-gold/10 text-sm font-bold text-gold" aria-hidden>
-                          <Lock className="size-4" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium text-foreground/80">
-                            الفصل {c.number}: {c.titleAr}
-                          </span>
-                          <span className="text-[11px] text-gold">
-                            ينشر {c.scheduledFor ? new Date(c.scheduledFor).toLocaleDateString("ar-EG", { day: "numeric", month: "long" }) : "قريبًا"}
-                          </span>
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-                </section>
-              )}
-            </section>
-
-            {/* Side info */}
-            <aside className="space-y-5" aria-label="معلومات إضافية">
-              <div className="rounded-2xl border border-border/60 bg-card p-4">
-                <h3 className="mb-2.5 text-sm font-bold">التصنيفات</h3>
-                <div className="flex flex-wrap gap-1.5">
-                  {genres.map((g) => (
-                    <Link
-                      key={g}
-                      href={`/explore?genre=${encodeURIComponent(g)}`}
-                      className="rounded-full border border-border bg-secondary/60 px-2.5 py-1 text-xs text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
-                    >
-                      {g}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-              <div className="rounded-2xl border border-gold/25 bg-gold/5 p-4 text-xs leading-6 text-gold/90">
-                هذا عمل خيالي أصلي أُنشئ لأغراض العرض التجريبي — لا يمثل عملًا حقيقيًا أو مرخّصًا.
-              </div>
+                {s.translator && <div className="flex flex-wrap justify-between gap-2">
+                  <dt className="flex items-center gap-2 text-muted-foreground"><Languages className="size-4" aria-hidden /> المترجم</dt>
+                  <dd className="max-w-full break-words font-medium">{s.translator}</dd>
+                </div>}
+              </dl>
+              {genres.length > 0 && <div className="border-t border-border pt-4">
+                <p className="mb-2 text-sm font-medium">أجواء العمل</p>
+                <div className="flex flex-wrap gap-2">{genres.map(genre => <Link key={genre} href={'/explore?genre=' + encodeURIComponent(genre)} className="inline-flex min-h-11 items-center text-xs text-muted-foreground hover:text-primary">{genre}</Link>)}</div>
+              </div>}
             </aside>
-          </div>
-
-          <Rail title="أعمال مشابهة قد تعجبك">
-            {related.map((r) => (
-              <SeriesCardItem key={r.id} series={r} />
-            ))}
-            {related.length === 0 && (
-              <p className="text-sm text-muted-foreground">لا أعمال مشابهة بعد.</p>
-            )}
-          </Rail>
-
-          {/* Community (Release B): rating + series-level comments */}
-          <div className="mt-8 grid gap-6 pb-10 lg:grid-cols-[280px_1fr]">
-            <RatingWidget
-              slug={s.slug}
-              ratingAvg={s.ratingAvg}
-              ratingCount={s.ratingCount}
-              userValue={userRating?.value ?? null}
-            />
-            <CommentsSection
-              seriesSlug={s.slug}
-              seriesTitle={s.titleAr}
-              comments={comments}
-            />
+            <div className="min-w-0">
+              <section aria-label="بيانات العمل الرئيسية" className="relative overflow-hidden rounded-xl border border-border bg-card/30">
+                {hasCover && <div className="pointer-events-none absolute inset-0 hidden lg:block" aria-hidden>
+                  <Image src={s.coverPath} alt="" fill sizes="800px" className="object-cover object-[50%_12%]" priority />
+                  <div className="absolute inset-0 bg-gradient-to-l from-background/95 via-background/75 to-background/25" />
+                </div>}
+                <div className="relative p-4 sm:p-5 lg:p-7">
+                  <div className="grid grid-cols-[104px_minmax(0,1fr)] gap-4 sm:grid-cols-[120px_minmax(0,1fr)] lg:block">
+                    <div className="relative aspect-[2/3] self-start overflow-hidden rounded-lg border border-border lg:hidden">
+                      {hasCover ? <Image src={s.coverPath} alt={'غلاف ' + s.titleAr} fill sizes="120px" className="object-cover" priority /> : <div role="img" aria-label="لا يوجد غلاف لهذا العمل" className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-card text-muted-foreground"><BookOpen className="size-7" aria-hidden /><span className="text-[10px]">الغلاف غير متاح</span></div>}
+                    </div>
+                    <div className="min-w-0">
+                      <nav aria-label="تصنيف العمل" className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                        {categoryLabel ? <Link className="inline-flex min-h-11 items-center hover:text-primary" href={'/explore?category=' + s.category}>{categoryLabel}</Link> : <span>{formatLabel}</span>}
+                        {primaryGenre && <><span aria-hidden>‹</span><Link className="inline-flex min-h-11 items-center hover:text-primary" href={'/explore?genre=' + encodeURIComponent(primaryGenre)}>{primaryGenre}</Link></>}
+                      </nav>
+                      <h1 className="text-xl font-extrabold leading-snug text-foreground sm:text-2xl lg:text-3xl">{s.titleAr}</h1>
+                      {s.titleOriginal && <p className="mt-1 break-words text-right text-xs text-muted-foreground sm:text-sm" dir="auto">{s.titleOriginal}</p>}
+                      <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs sm:text-sm">
+                        {s.ratingCount > 0 ? <span className="inline-flex items-center gap-1 text-gold"><Star className="size-4 fill-current" aria-hidden />{s.ratingAvg.toFixed(1)}<span className="sr-only"> من 5، {s.ratingCount} تقييمًا</span></span> : <span className="text-muted-foreground">لم يُقيّم بعد</span>}
+                        <span className="inline-flex items-center gap-1 text-muted-foreground"><BookOpen className="size-4" aria-hidden />{published.length} فصلاً</span>
+                        <span className={'rounded-lg border px-2 py-1 ' + (s.status === 'ongoing' ? 'border-success/30 text-success' : 'border-border text-muted-foreground')}>{statusLabel}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-4 lg:mt-6">
+                    <WorkHeroActions slug={s.slug} format={s.format as Format} serverProgress={serverProgress}
+                      chapters={published.map(c => ({ number: c.number, isPremiumDemo: c.isPremiumDemo }))}
+                      titleAr={s.titleAr} initialShelf={initialShelf} />
+                  </div>
+                </div>
+              </section>
+              <div className="px-1 pt-5 lg:hidden"><WorkSynopsis synopsis={s.synopsisAr} /></div>
+              <div className="mt-5 lg:mt-4">
+                <WorkTabs slug={s.slug} format={s.format as Format} coverPath={s.coverPath}
+                  publishedChapters={publishedView} scheduledChapters={scheduledView} serverProgress={serverProgress}
+                  progressMapEntries={progressEntries} aboutData={{ titleAr: s.titleAr, synopsisAr: s.synopsisAr,
+                    author: s.author, translator: s.translator, categoryLabel, formatLabel, statusLabel, genres, tags }}>
+                  <div className="grid items-start gap-5 xl:grid-cols-[240px_minmax(0,1fr)]">
+                    <RatingWidget slug={s.slug} ratingAvg={s.ratingAvg} ratingCount={s.ratingCount} userValue={userRating?.value ?? null} />
+                    <div className="min-w-0"><CommentsSection seriesSlug={s.slug} seriesTitle={s.titleAr} comments={comments} /></div>
+                  </div>
+                </WorkTabs>
+              </div>
+              {related.length > 0 && <Rail title="أعمال مشابهة قد تعجبك">
+                {related.map(work => <SeriesCardItem key={work.id} series={work} />)}
+              </Rail>}
+            </div>
           </div>
         </div>
       </main>

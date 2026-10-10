@@ -3,9 +3,11 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { FORMATS } from "@/lib/constants";
+import { CATEGORIES, FORMATS } from "@/lib/constants";
 import { scoreDocument, suggestTitle, tokenizeArabic } from "@/lib/arabic-search";
-import type { CommentStatus, Format, Role, SeriesStatus, Workflow } from "@/lib/constants";
+import type { Category, CommentStatus, Format, Role, SeriesStatus, Workflow } from "@/lib/constants";
+import { isStaffRole } from "@/lib/team-access";
+import { displayCover } from "@/lib/demo-cover-art";
 
 /* ------------------------------------------------------------------ */
 /* Session / role helpers (application-level authorization — there is   */
@@ -20,7 +22,10 @@ export async function requireProfile() {
   const session = await getSession();
   if (!session?.user?.id) redirect("/login");
   const profile = await db.profile.findUnique({ where: { id: session.user.id } });
-  if (!profile) redirect("/login");
+  if (!profile || profile.disabledAt || !profile.emailVerifiedAt) redirect("/login");
+  if (profile.authVersion !== session.user.authVersion) {
+    redirect("/login");
+  }
   return profile;
 }
 
@@ -33,7 +38,12 @@ export async function requireRole(roles: Role[]) {
 export async function currentProfileOrNull() {
   const session = await getSession();
   if (!session?.user?.id) return null;
-  return db.profile.findUnique({ where: { id: session.user.id } });
+  const profile = await db.profile.findUnique({ where: { id: session.user.id } });
+  if (!profile || profile.disabledAt || !profile.emailVerifiedAt) return null;
+  if (profile.authVersion !== session.user.authVersion) {
+    return null;
+  }
+  return profile;
 }
 
 /* ------------------------------------------------------------------ */
@@ -59,6 +69,7 @@ export type SeriesCard = {
   slug: string;
   titleAr: string;
   format: Format;
+  category?: Category | null;
   status: SeriesStatus;
   genres: string[];
   author: string;
@@ -73,6 +84,7 @@ export type SeriesCard = {
 
 export type ExploreFilters = {
   q?: string;
+  category?: string;
   format?: string;
   genre?: string;
   status?: string;
@@ -84,6 +96,7 @@ export function toCard(s: {
   slug: string;
   titleAr: string;
   format: string;
+  category?: string | null;
   status: string;
   genresJson: string;
   author: string;
@@ -104,10 +117,11 @@ export function toCard(s: {
     slug: s.slug,
     titleAr: s.titleAr,
     format: s.format as Format,
+    category: (s.category ?? null) as Category | null,
     status: s.status as SeriesStatus,
     genres: parseJsonArray(s.genresJson),
     author: s.author,
-    coverPath: s.coverPath,
+    coverPath: displayCover(s.coverPath),
     accent: s.accent,
     ratingAvg: s.ratingAvg,
     ratingCount: s.ratingCount,
@@ -138,8 +152,8 @@ export function liveChapterWhere() {
 }
 
 export async function getPublishedSeries(filters: ExploreFilters): Promise<SeriesCard[]> {
-  const where: Record<string, unknown> = {};
-  // A-scope: every series in the demo is public; the published-only filter applies to chapters.
+  const where: Record<string, unknown> = { chapters: { some: liveChapterWhere() } };
+  if (filters.category && (CATEGORIES as readonly string[]).includes(filters.category)) where.category = filters.category;
   if (filters.format && (FORMATS as readonly string[]).includes(filters.format)) where.format = filters.format;
   if (filters.status && ["ongoing", "completed", "hiatus"].includes(filters.status))
     where.status = filters.status;
@@ -197,22 +211,22 @@ export async function getPublishedSeries(filters: ExploreFilters): Promise<Serie
  */
 export async function getSearchSuggestion(q: string): Promise<string | null> {
   if (!q.trim()) return null;
-  const rows = await db.series.findMany({ select: { titleAr: true } });
+  const rows = await db.series.findMany({ where: { chapters: { some: liveChapterWhere() } }, select: { titleAr: true } });
   return suggestTitle(q, rows.map((r) => r.titleAr));
 }
 
 export async function getTrendingSeries(limit = 8): Promise<SeriesCard[]> {
-  const rows = await db.series.findMany({ include: cardInclude, orderBy: { reads: "desc" }, take: limit });
+  const rows = await db.series.findMany({ where: { chapters: { some: liveChapterWhere() } }, include: cardInclude, orderBy: { reads: "desc" }, take: limit });
   return rows.map(toCard);
 }
 
 export async function getNewestSeries(limit = 8): Promise<SeriesCard[]> {
-  const rows = await db.series.findMany({ include: cardInclude, orderBy: { createdAt: "desc" }, take: limit });
+  const rows = await db.series.findMany({ where: { chapters: { some: liveChapterWhere() } }, include: cardInclude, orderBy: { createdAt: "desc" }, take: limit });
   return rows.map(toCard);
 }
 
 export async function getGenreCounts(): Promise<{ genre: string; count: number }[]> {
-  const rows = await db.series.findMany({ select: { genresJson: true } });
+  const rows = await db.series.findMany({ where: { chapters: { some: liveChapterWhere() } }, select: { genresJson: true } });
   const counts = new Map<string, number>();
   for (const r of rows)
     for (const g of parseJsonArray(r.genresJson)) counts.set(g, (counts.get(g) ?? 0) + 1);
@@ -247,7 +261,7 @@ export async function getSeriesBySlug(slug: string) {
       },
     },
   });
-  if (!s) return null;
+  if (!s || s.chapters.length === 0) return null;
   const now = new Date();
   const mapChapter = (c: (typeof s.chapters)[number]): ChapterListItem => ({
     id: c.id,
@@ -263,6 +277,7 @@ export async function getSeriesBySlug(slug: string) {
   const scheduled = s.chapters.filter((c) => c.scheduledFor && c.scheduledFor > now);
   return {
     ...s,
+    coverPath: displayCover(s.coverPath),
     publishedChapters: live.map(mapChapter),
     scheduledChapters: scheduled.map(mapChapter),
   };
@@ -270,7 +285,7 @@ export async function getSeriesBySlug(slug: string) {
 
 export async function getRelatedSeries(seriesId: string, genres: string[], limit = 6) {
   const rows = await db.series.findMany({
-    where: { id: { not: seriesId } },
+    where: { id: { not: seriesId }, chapters: { some: liveChapterWhere() } },
     include: cardInclude,
     take: 24,
   });
@@ -302,7 +317,7 @@ export async function getChapterForReading(seriesSlug: string, chapterNumber: nu
   });
   if (!chapter) return null;
   const siblings = await db.chapter.findMany({
-    where: liveChapterWhere(),
+    where: { seriesId: series.id, ...liveChapterWhere() },
     orderBy: { number: "asc" },
     select: { number: true, titleAr: true, isPremiumDemo: true },
   });
@@ -314,6 +329,15 @@ export async function getChapterForReading(seriesSlug: string, chapterNumber: nu
     next: idx >= 0 && idx < siblings.length - 1 ? siblings[idx + 1] : null,
     chapterList: siblings,
   };
+}
+
+export async function getReaderProgress(profileId: string | null, chapterId: string) {
+  if (!profileId) return null;
+  const row = await db.readingProgress.findUnique({
+    where: { profileId_chapterId: { profileId, chapterId } },
+    select: { pageIndex: true, percent: true, updatedAt: true },
+  });
+  return row ? { ...row, updatedAt: row.updatedAt.getTime() } : null;
 }
 
 export async function getProgressMap(profileId: string | null, seriesId: string) {
@@ -339,7 +363,7 @@ export type ContinueReadingItem = {
 
 export async function getContinueReading(profileId: string, limit = 3): Promise<ContinueReadingItem[]> {
   const rows = await db.readingProgress.findMany({
-    where: { profileId, completed: false },
+    where: { profileId, completed: false, percent: { gt: 0, lt: 99 }, chapter: { ...liveChapterWhere(), isPremiumDemo: false } },
     orderBy: { updatedAt: "desc" },
     take: limit,
     include: {
@@ -350,7 +374,7 @@ export async function getContinueReading(profileId: string, limit = 3): Promise<
   return rows.map((r) => ({
     seriesSlug: r.series.slug,
     seriesTitle: r.series.titleAr,
-    coverPath: r.series.coverPath,
+    coverPath: displayCover(r.series.coverPath),
     accent: r.series.accent,
     format: r.series.format as Format,
     chapterNumber: r.chapter.number,
@@ -369,7 +393,7 @@ export async function getLatestUpdates(limit = 10) {
     where: liveChapterWhere(),
     orderBy: [{ publishedAt: "desc" }],
     take: limit,
-    include: { series: { select: { slug: true, titleAr: true, coverPath: true, accent: true, format: true } } },
+    include: { series: { select: { slug: true, titleAr: true, coverPath: true, accent: true, format: true, category: true } } },
   });
   return chapters.map((c) => ({
     id: c.id,
@@ -377,7 +401,7 @@ export async function getLatestUpdates(limit = 10) {
     titleAr: c.titleAr,
     publishedAt: c.publishedAt as Date,
     isPremiumDemo: c.isPremiumDemo,
-    series: c.series,
+    series: { ...c.series, coverPath: displayCover(c.series.coverPath) },
   }));
 }
 
@@ -390,6 +414,9 @@ export async function getFeaturedCollections() {
 /* ------------------------------------------------------------------ */
 
 export async function getAdminOverview() {
+  const profile = await currentProfileOrNull();
+  if (!profile || profile.role !== "admin") return null;
+
   const [seriesCount, chapterCount, publishedCount, draftCount, reviewCount, profileCount, eventCount] =
     await Promise.all([
       db.series.count(),
@@ -425,7 +452,13 @@ export async function getAdminOverview() {
 export type AdminSeriesFilters = { q?: string; format?: string; status?: string };
 
 export async function getAdminSeries(filters: AdminSeriesFilters) {
+  const profile = await currentProfileOrNull();
+  if (!profile || !isStaffRole(profile.role)) return [];
+
   const where: Record<string, unknown> = {};
+  if (profile.role !== "admin") {
+    where.assignments = { some: { profileId: profile.id } };
+  }
   if (filters.format && (FORMATS as readonly string[]).includes(filters.format)) where.format = filters.format;
   if (filters.status && ["ongoing", "completed", "hiatus"].includes(filters.status))
     where.status = filters.status;
@@ -438,8 +471,37 @@ export async function getAdminSeries(filters: AdminSeriesFilters) {
 }
 
 export async function getAdminSeriesById(id: string) {
-  return db.series.findUnique({
-    where: { id },
+  const profile = await currentProfileOrNull();
+  if (!profile || !isStaffRole(profile.role)) return null;
+
+  if (profile.role === "admin") {
+    return db.series.findUnique({
+      where: { id },
+      include: {
+        chapters: {
+          orderBy: { number: "asc" },
+          include: { _count: { select: { pages: true } } },
+        },
+        assignments: {
+          include: {
+            profile: { select: { id: true, email: true, nickname: true, role: true } },
+          },
+        },
+      },
+    });
+  }
+
+  // Non-admin staff: combined id + assignment membership, no team assignment or email list
+  return db.series.findFirst({
+    where: {
+      id,
+      assignments: {
+        some: {
+          profileId: profile.id,
+          profile: { role: { in: ["contributor", "editor"] } },
+        },
+      },
+    },
     include: {
       chapters: {
         orderBy: { number: "asc" },
@@ -449,12 +511,24 @@ export async function getAdminSeriesById(id: string) {
   });
 }
 
-export async function getAdminChapters(filters: { workflow?: string; format?: string }) {
+export async function getAdminChapters(filters: { workflow?: string; format?: string; seriesId?: string }) {
+  const profile = await currentProfileOrNull();
+  if (!profile || !isStaffRole(profile.role)) return [];
+
   const chapterWhere: Record<string, unknown> = {};
   if (filters.workflow && ["draft", "review", "published"].includes(filters.workflow))
     chapterWhere.workflow = filters.workflow;
+  if (filters.seriesId) {
+    chapterWhere.seriesId = filters.seriesId;
+  }
+
   const seriesWhere: Record<string, unknown> = {};
   if (filters.format && (FORMATS as readonly string[]).includes(filters.format)) seriesWhere.format = filters.format;
+  if (profile.role !== "admin") {
+    seriesWhere.assignments = { some: { profileId: profile.id } };
+  }
+  chapterWhere.series = seriesWhere;
+
   return db.chapter.findMany({
     where: chapterWhere,
     orderBy: [{ publishedAt: "desc" }, { createdAt: "desc" }],
@@ -465,12 +539,46 @@ export async function getAdminChapters(filters: { workflow?: string; format?: st
   });
 }
 
+export async function getStaffOverview() {
+  const profile = await currentProfileOrNull();
+  if (!profile || !isStaffRole(profile.role)) return null;
+  const series = await db.series.findMany({
+    where: profile.role === "admin" ? {} : { assignments: { some: { profileId: profile.id } } },
+    orderBy: { updatedAt: "desc" },
+    include: { _count: { select: { chapters: true } } },
+  });
+  return { profile, series };
+}
+
+export async function getSeriesAssignments(seriesId: string) {
+  const profile = await currentProfileOrNull();
+  if (!profile || profile.role !== "admin") return [];
+  return db.seriesAssignment.findMany({
+    where: { seriesId },
+    include: {
+      profile: { select: { id: true, email: true, nickname: true, role: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+export async function getAssignableStaff() {
+  const profile = await currentProfileOrNull();
+  if (!profile || profile.role !== "admin") return [];
+  return db.profile.findMany({
+    where: { role: { in: ["contributor", "editor"] } },
+    select: { id: true, email: true, nickname: true, role: true },
+    orderBy: { nickname: "asc" },
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Release B — personal library, updates feed, community, admin extras */
 /* ------------------------------------------------------------------ */
 
 export type LibraryEntry = {
   series: SeriesCard;
+  titleOriginal: string;
   shelf: "reading" | "plan" | "finished";
   addedAt: Date;
   unreadCount: number;
@@ -489,7 +597,7 @@ export async function getLibrary(profileId: string, shelf?: string): Promise<Lib
   if (items.length === 0) return [];
   const seriesIds = items.map((i) => i.series.id);
   const progressRows = await db.readingProgress.findMany({
-    where: { profileId, seriesId: { in: seriesIds }, completed: true },
+    where: { profileId, seriesId: { in: seriesIds }, OR: [{ completed: true }, { percent: { gte: 99 } }] },
     select: { seriesId: true, chapterId: true },
   });
   const readBy = new Map<string, Set<string>>();
@@ -503,6 +611,7 @@ export async function getLibrary(profileId: string, shelf?: string): Promise<Lib
     const unreadCount = liveChapterIds.filter((id) => !readSet.has(id)).length;
     return {
       series: toCard(item.series),
+      titleOriginal: item.series.titleOriginal ?? "",
       shelf: item.shelf as LibraryEntry["shelf"],
       addedAt: item.createdAt,
       unreadCount,
@@ -522,7 +631,7 @@ export type UpdatesFeedItem = {
   publishedAt: Date;
   isPremiumDemo: boolean;
   read: boolean;
-  series: { slug: string; titleAr: string; coverPath: string; accent: string; format: Format };
+  series: { slug: string; titleAr: string; coverPath: string; accent: string; format: Format; category: Category | null };
 };
 
 export async function getLibraryUpdatesFeed(profileId: string, limit = 40): Promise<UpdatesFeedItem[]> {
@@ -534,7 +643,7 @@ export async function getLibraryUpdatesFeed(profileId: string, limit = 40): Prom
     orderBy: { publishedAt: "desc" },
     take: limit,
     include: {
-      series: { select: { slug: true, titleAr: true, coverPath: true, accent: true, format: true } },
+      series: { select: { slug: true, titleAr: true, coverPath: true, accent: true, format: true, category: true } },
     },
   });
   if (chapters.length === 0) return [];
@@ -550,7 +659,7 @@ export async function getLibraryUpdatesFeed(profileId: string, limit = 40): Prom
     publishedAt: (c.publishedAt ?? c.createdAt) as Date,
     isPremiumDemo: c.isPremiumDemo,
     read: readSet.has(c.id),
-    series: c.series,
+    series: { ...c.series, coverPath: displayCover(c.series.coverPath) },
   }));
 }
 
@@ -648,6 +757,10 @@ export async function getFavoriteGenres(profileId: string) {
 /* --- admin: moderation, users, collections, dashboard analytics --- */
 
 export async function getModerationQueue() {
+  const profile = await currentProfileOrNull();
+  if (!profile || (profile.role !== "admin" && profile.role !== "editor")) {
+    return { items: [], hiddenCount: 0, reportCount: 0 };
+  }
   const [items, hiddenCount, reportCount] = await Promise.all([
     db.comment.findMany({
       where: { status: { in: ["flagged", "hidden"] as ("flagged" | "hidden")[] } },
@@ -666,22 +779,29 @@ export async function getModerationQueue() {
 }
 
 export async function getAdminUsers() {
+  const profile = await currentProfileOrNull();
+  if (!profile || profile.role !== "admin") return [];
   return db.profile.findMany({
     orderBy: { createdAt: "asc" },
     select: {
       id: true, email: true, nickname: true, role: true, avatarSeed: true, createdAt: true,
+      emailVerifiedAt: true, disabledAt: true,
       _count: { select: { comments: true, libraryItems: true, readingProgress: true } },
     },
   });
 }
 
 export async function getAdminCollections() {
+  const profile = await currentProfileOrNull();
+  if (!profile || profile.role !== "admin") return [];
   return db.editorialCollection.findMany({ orderBy: { displayOrder: "asc" } });
 }
 
 export type DashboardPoint = { day: string; reads: number; logins: number; publish: number };
 
 export async function getDashboardActivity(days = 14): Promise<DashboardPoint[]> {
+  const profile = await currentProfileOrNull();
+  if (!profile || profile.role !== "admin") return [];
   const since = new Date(Date.now() - days * 86400000);
   const events = await db.analyticsEvent.findMany({
     where: {
@@ -739,7 +859,16 @@ export type StudioSeriesRow = {
 };
 
 export async function getStudioOverview(): Promise<StudioSeriesRow[]> {
+  const profile = await currentProfileOrNull();
+  if (!profile || !isStaffRole(profile.role)) return [];
+
+  const where: Record<string, unknown> = {};
+  if (profile.role !== "admin") {
+    where.assignments = { some: { profileId: profile.id } };
+  }
+
   const rows = await db.series.findMany({
+    where,
     orderBy: { reads: "desc" },
     include: {
       _count: { select: { libraryItems: true } },

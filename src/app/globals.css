@@ -48,13 +48,13 @@
 */
 :root {
   --radius: 0.75rem;
-  --background: #0b0b10;
+  --background: #101217;
   --foreground: #f4f0e8;
-  --card: #1b1925;
+  --card: #191C25;
   --card-foreground: #f4f0e8;
   --popover: #14131c;
   --popover-foreground: #f4f0e8;
-  --primary: #9b7bff;
+  --primary: #b497ef;
   --primary-foreground: #14131c;
   --secondary: #232031;
   --secondary-foreground: #f4f0e8;
@@ -65,20 +65,20 @@
   --destructive: #e56b6f;
   --border: rgba(166, 160, 179, 0.16);
   --input: rgba(166, 160, 179, 0.22);
-  --ring: #9b7bff;
+  --ring: #b497ef;
   --gold: #ddbb77;
   --gold-foreground: #14131c;
   --success: #5fcb9b;
   --danger: #e56b6f;
   --sidebar: #14131c;
   --sidebar-foreground: #f4f0e8;
-  --sidebar-primary: #9b7bff;
+  --sidebar-primary: #b497ef;
   --sidebar-primary-foreground: #14131c;
   --sidebar-accent: #232031;
   --sidebar-accent-foreground: #f4f0e8;
   --sidebar-border: rgba(166, 160, 179, 0.16);
-  --sidebar-ring: #9b7bff;
-  --chart-1: #9b7bff;
+  --sidebar-ring: #b497ef;
+  --chart-1: #b497ef;
   --chart-2: #ddbb77;
   --chart-3: #5fcb9b;
   --chart-4: #e56b6f;
@@ -86,13 +86,13 @@
 }
 
 .dark {
-  --background: #0b0b10;
+  --background: #101217;
   --foreground: #f4f0e8;
-  --card: #1b1925;
+  --card: #191C25;
   --card-foreground: #f4f0e8;
   --popover: #14131c;
   --popover-foreground: #f4f0e8;
-  --primary: #9b7bff;
+  --primary: #b497ef;
   --primary-foreground: #14131c;
   --secondary: #232031;
   --secondary-foreground: #f4f0e8;
@@ -103,20 +103,20 @@
   --destructive: #e56b6f;
   --border: rgba(166, 160, 179, 0.16);
   --input: rgba(166, 160, 179, 0.22);
-  --ring: #9b7bff;
+  --ring: #b497ef;
   --gold: #ddbb77;
   --gold-foreground: #14131c;
   --success: #5fcb9b;
   --danger: #e56b6f;
   --sidebar: #14131c;
   --sidebar-foreground: #f4f0e8;
-  --sidebar-primary: #9b7bff;
+  --sidebar-primary: #b497ef;
   --sidebar-primary-foreground: #14131c;
   --sidebar-accent: #232031;
   --sidebar-accent-foreground: #f4f0e8;
   --sidebar-border: rgba(166, 160, 179, 0.16);
-  --sidebar-ring: #9b7bff;
-  --chart-1: #9b7bff;
+  --sidebar-ring: #b497ef;
+  --chart-1: #b497ef;
   --chart-2: #ddbb77;
   --chart-3: #5fcb9b;
   --chart-4: #e56b6f;
@@ -140,7 +140,7 @@
     line-height: 1.4;
   }
   ::selection {
-    background: rgba(155, 123, 255, 0.35);
+    background: rgba(180, 151, 239, 0.35);
   }
 }
 
@@ -148,7 +148,7 @@
   /* paper-grain surface used by hero + collection cards (calm, collectible mood) */
   .bg-library-glow {
     background:
-      radial-gradient(60rem 30rem at 85% -10%, rgba(155, 123, 255, 0.14), transparent 60%),
+      radial-gradient(60rem 30rem at 85% -10%, rgba(180, 151, 239, 0.14), transparent 60%),
       radial-gradient(40rem 24rem at 0% 0%, rgba(221, 187, 119, 0.07), transparent 55%),
       var(--background);
   }
@@ -173,5 +173,14 @@
   }
   .scrollbar-none {
     scrollbar-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

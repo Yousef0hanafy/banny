@@ -1,5 +1,8 @@
 "use client";
 
+import { isReaderProgress } from "@/lib/reader-progress";
+import type { Format } from "@/lib/constants";
+
 /**
  * Guest/mirror reading progress in localStorage (docs/DECISIONS.md D-16, D-25).
  * Signed-in users also persist via the saveReadingProgress Server Action;
@@ -22,13 +25,23 @@ export type LocalProgress = {
 
 const KEY = "bunny.progress.v1";
 
+function isLocalProgress(value: unknown): value is LocalProgress {
+  if (!isReaderProgress(value)) return false;
+  const p = value as LocalProgress;
+  return typeof p.seriesSlug === "string" && p.seriesSlug.length > 0 &&
+    Number.isSafeInteger(p.chapterNumber) && p.chapterNumber > 0 &&
+    Number.isSafeInteger(p.total) && p.total > 0 &&
+    ["manga", "webtoon", "novel"].includes(p.format) &&
+    [p.seriesTitle, p.chapterTitle, p.coverPath, p.accent].every(v => typeof v === "string");
+}
+
 export function readAllLocal(): LocalProgress[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return [];
     const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? (arr as LocalProgress[]) : [];
+    return Array.isArray(arr) ? arr.filter(isLocalProgress) : [];
   } catch {
     return [];
   }
@@ -37,6 +50,11 @@ export function readAllLocal(): LocalProgress[] {
 export function readLocal(seriesSlug: string): LocalProgress | null {
   const all = readAllLocal();
   return all.find((p) => p.seriesSlug === seriesSlug) ?? null;
+}
+
+export function readChapterLocal(seriesSlug: string, chapterNumber: number, format: Format): LocalProgress | null {
+  return readAllLocal().filter(p => p.seriesSlug === seriesSlug && p.chapterNumber === chapterNumber && p.format === format)
+    .sort((a, b) => b.updatedAt - a.updatedAt)[0] ?? null;
 }
 
 export function writeLocal(p: Omit<LocalProgress, "updatedAt">) {

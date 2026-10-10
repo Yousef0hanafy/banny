@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { AlertTriangle, ArrowUpLeft, BookOpen, CheckCircle2, FileEdit, LibraryBig, ListOrdered, Eye, Users } from "lucide-react";
-import { getAdminOverview, getDashboardActivity, getCommunityCounts } from "@/lib/queries";
+import { getAdminOverview, getDashboardActivity, getCommunityCounts, getStaffOverview, currentProfileOrNull } from "@/lib/queries";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ActivityChart } from "@/components/admin/activity-chart";
-import { WORKFLOW_LABELS, type Workflow } from "@/lib/constants";
+import { WORKFLOW_LABELS, type Workflow, FORMAT_LABELS } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +24,77 @@ export default async function AdminDashboard({
 }) {
   const sp = await searchParams;
   const denied = sp.denied === "1";
+  const profile = await currentProfileOrNull();
+
+  // Non-admin staff landing (contributor/editor): assigned works view without redirect loop
+  if (profile && profile.role !== "admin") {
+    const staff = await getStaffOverview();
+    const seriesList = staff?.series ?? [];
+
+    return (
+      <main className="mx-auto max-w-6xl p-4 pt-6 sm:p-6 space-y-6">
+        <header className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">مساحة العمل</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              الأعمال المسندة إليك للمساهمة وإعداد ومراجعة الفصول.
+            </p>
+          </div>
+          <Button asChild size="sm" className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90">
+            <Link href="/admin/chapters/new"><ListOrdered className="size-4" /> فصل جديد</Link>
+          </Button>
+        </header>
+
+        {denied && (
+          <p role="alert" className="flex items-center gap-2 rounded-xl border border-danger/40 bg-danger/10 px-4 py-3 text-sm text-danger">
+            <AlertTriangle className="size-4 shrink-0" aria-hidden />
+            لا تملك صلاحية الوصول إلى تلك الشاشة.
+          </p>
+        )}
+
+        {seriesList.length === 0 ? (
+          <div className="rounded-2xl border border-white/5 bg-card p-12 text-center">
+            <LibraryBig className="mx-auto size-12 text-muted-foreground/40 mb-3" />
+            <h3 className="text-base font-semibold text-foreground">لا توجد أعمال مسندة بعد</h3>
+            <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
+              لم يقم مدير المكتبة بإسناد أي عمل إلى حسابك حاليًا. عند إسناد عمل، سيظهر هنا لإعداد الفصول وتعديل المسودات.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {seriesList.map((s) => (
+              <Card key={s.id} className="border-border/60 bg-card hover:border-primary/40 transition">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge variant="outline" className="text-[10px]">{FORMAT_LABELS[s.format]}</Badge>
+                    <span className="text-xs text-muted-foreground">{s._count.chapters} فصل</span>
+                  </div>
+                  <CardTitle className="text-base mt-2 truncate">
+                    <Link href={`/admin/series/${s.id}`} className="hover:text-primary transition-colors">
+                      {s.titleAr}
+                    </Link>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pt-2 flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground truncate">{s.author}</span>
+                  <Button asChild variant="ghost" size="sm" className="gap-1 text-xs text-primary">
+                    <Link href={`/admin/series/${s.id}`}>
+                      إدارة العمل
+                      <ArrowUpLeft className="size-3.5" />
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </main>
+    );
+  }
+
+  // Admin global dashboard
   const o = await getAdminOverview();
+  if (!o) return null;
   const [chart, community] = await Promise.all([getDashboardActivity(14), getCommunityCounts()]);
 
   const cards = [
@@ -42,7 +112,7 @@ export default async function AdminDashboard({
         <div>
           <h1 className="text-2xl font-bold text-foreground">اللوحة</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            نظرة سريعة على مكتبة العرض التجريبي — البيانات من بذرة العرض وأحداثه.
+            نظرة سريعة على الأعمال والفصول ونشاط القراء في المكتبة.
           </p>
         </div>
         <div className="flex gap-2">

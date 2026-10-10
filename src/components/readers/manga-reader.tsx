@@ -1,15 +1,18 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { ChevronLeft, ChevronRight, ArrowLeftRight, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ReaderChapterSelect, EmptyReaderContent, type ReaderChapter } from "@/components/readers/reader-tools";
+import { ReaderImage } from "@/components/readers/reader-image";
 import { ReaderChrome, ChapterEndCard, LockedChapterPanel } from "@/components/readers/reader-chrome";
 import { ChapterCommentsDialog } from "@/components/community/chapter-comments-dialog";
 import { saveReadingProgress } from "@/lib/actions";
-import { writeLocal } from "@/lib/progress-local";
+import { readChapterLocal, writeLocal } from "@/lib/progress-local";
+import { selectReaderProgress, type ReaderProgress } from "@/lib/reader-progress";
+import { readerHref } from "@/lib/reader-route";
 import type { CommentView } from "@/lib/queries";
 
 type Page = { id: string; pageIndex: number; imagePath: string; width: number; height: number };
@@ -19,10 +22,12 @@ export function MangaReader({
   seriesTitle,
   chapterNumber,
   chapterTitle,
+  chapters,
   pages,
   defaultDirection,
   isPremiumDemo,
   comments = [],
+  initialProgress = null,
   next,
   prev,
 }: {
@@ -30,10 +35,12 @@ export function MangaReader({
   seriesTitle: string;
   chapterNumber: number;
   chapterTitle: string;
+  chapters: ReaderChapter[];
   pages: Page[];
   defaultDirection: "rtl" | "ltr";
   isPremiumDemo: boolean;
   comments?: CommentView[];
+  initialProgress?: ReaderProgress | null;
   next: { number: number; isPremiumDemo: boolean } | null;
   prev: { number: number; isPremiumDemo: boolean } | null;
 }) {
@@ -42,31 +49,46 @@ export function MangaReader({
   const [direction, setDirection] = useState<"rtl" | "ltr">(defaultDirection);
   const [index, setIndex] = useState(0);
   const lastSaved = useRef(-1);
+  const [restored, setRestored] = useState(false);
 
   const total = pages.length;
   const percent = total ? ((index + 1) / total) * 100 : 0;
 
+  useEffect(() => {
+    if (restored || isPremiumDemo || !total) return;
+    const frame = requestAnimationFrame(() => {
+      const progress = selectReaderProgress(readChapterLocal(seriesSlug, chapterNumber, "manga"), initialProgress);
+      setIndex(Math.min(total - 1, progress?.pageIndex ?? 0));
+      setRestored(true);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [chapterNumber, initialProgress, isPremiumDemo, restored, seriesSlug, total]);
+
   const go = useCallback(
     (delta: 1 | -1) => {
+      if (!restored || isPremiumDemo || !total) return;
       setIndex((i) => {
         const nextIndex = i + delta;
         if (nextIndex < 0) {
-          if (prev) window.location.href = `/read/manga/${seriesSlug}/${prev.number}`;
+          if (prev) window.location.href = readerHref("manga", seriesSlug, prev.number);
           return i;
         }
         if (nextIndex >= total) {
-          if (next && !next.isPremiumDemo) window.location.href = `/read/manga/${seriesSlug}/${next.number}`;
+          if (next && !next.isPremiumDemo) window.location.href = readerHref("manga", seriesSlug, next.number);
           return i;
         }
         return nextIndex;
       });
     },
-    [next, prev, seriesSlug, total]
+    [next, prev, seriesSlug, total, restored, isPremiumDemo]
   );
 
-  // keyboard navigation — RTL-aware: "next" advances with Left arrow in RTL mode
+  // Keyboard navigation — RTL-aware: "next" advances with Left arrow in RTL mode
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const target = e.target;
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey ||
+        (target instanceof HTMLElement && (target.closest("input, textarea, select, [role=dialog], [contenteditable]")))) return;
       if (e.key === "ArrowLeft") go(direction === "rtl" ? 1 : -1);
       if (e.key === "ArrowRight") go(direction === "rtl" ? -1 : 1);
       if (e.key === "f") setImmersive((v) => !v);
@@ -75,8 +97,9 @@ export function MangaReader({
     return () => window.removeEventListener("keydown", onKey);
   }, [direction, go]);
 
-  // persist progress
+  // Persist progress
   useEffect(() => {
+    if (!restored || status === "loading" || isPremiumDemo || !total) return;
     if (lastSaved.current === index) return;
     lastSaved.current = index;
     writeLocal({
@@ -100,7 +123,7 @@ export function MangaReader({
         completed: index >= total - 1,
       }).catch(() => {});
     }
-  }, [chapterNumber, chapterTitle, index, percent, seriesSlug, seriesTitle, status, total]);
+  }, [chapterNumber, chapterTitle, index, percent, seriesSlug, seriesTitle, status, total, restored, isPremiumDemo]);
 
   if (isPremiumDemo) {
     return <LockedChapterPanel seriesSlug={seriesSlug} seriesTitle={seriesTitle} format="manga" />;
@@ -116,6 +139,7 @@ export function MangaReader({
         chapterNumber={chapterNumber}
         chapterTitle={chapterTitle}
         format="manga"
+        chapterControl={<ReaderChapterSelect seriesSlug={seriesSlug} format="manga" chapterNumber={chapterNumber} chapters={chapters} />}
         percent={percent}
         immersive={immersive}
         onToggleImmersive={() => setImmersive((v) => !v)}
@@ -127,12 +151,18 @@ export function MangaReader({
             comments={comments}
           />
         }
-      />
+      >
+        <p className="text-sm leading-7 text-muted-foreground">استخدم الأسهم أو جانبي الصفحة للتنقل. زر الاتجاه أسفل الشاشة يغيّر اتجاه القراءة.</p>
+        <button type="button" onClick={() => setDirection(value => value === "rtl" ? "ltr" : "rtl")}
+          className="mt-4 min-h-11 rounded-lg border border-border px-4 text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+          aria-label="تبديل اتجاه المانجا">{direction === "rtl" ? "من اليمين لليسار" : "من اليسار لليمين"}</button>
+      </ReaderChrome>
 
-      <main className="flex min-h-screen flex-col items-center justify-center px-2 pb-28 pt-16 sm:px-6" aria-label="صفحات الفصل">
+      <main className="flex min-h-screen flex-col items-center justify-center px-0 pb-40 pt-20 sm:px-6 sm:pb-32" aria-label="صفحات الفصل">
+        {!total && <EmptyReaderContent format="manga" />}
         {page && (
           <div
-            className="relative w-full max-w-[560px] cursor-pointer select-none overflow-hidden rounded-xl border border-border/60 shadow-2xl"
+            className="relative w-full max-w-[560px] cursor-pointer select-none"
             onClick={(e) => {
               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
               const clickedLeft = e.clientX - rect.left < rect.width / 2;
@@ -141,27 +171,18 @@ export function MangaReader({
             role="application"
             aria-label={`صفحة ${index + 1} من ${total} — انقر يمين الشاشة أو يسارها للتنقل`}
           >
-            <div className="relative" style={{ aspectRatio: `${page.width}/${page.height}` }}>
-              <Image
-                src={page.imagePath}
-                alt={`صفحة ${index + 1} من ${total}`}
-                fill
-                sizes="(max-width: 592px) 100vw, 560px"
-                className="object-cover"
-                priority={index === 0}
-              />
-            </div>
-            {/* tap zones hint (subtle) */}
+            <ReaderImage key={page.id} src={page.imagePath} alt={`صفحة ${index + 1} من ${total}`} width={page.width} height={page.height} sizes="(max-width: 592px) 100vw, 560px" eager />
+            {/* Subtle tap zones hint */}
             <div className="pointer-events-none absolute inset-y-0 start-0 w-1/2 opacity-0 transition hover:opacity-100">
               <div className="flex h-full items-center justify-start ps-3">
-                <span className="grid size-9 place-items-center rounded-full bg-background/70 text-foreground backdrop-blur">
+                <span className="grid size-9 place-items-center rounded-full bg-background/80 text-foreground backdrop-blur">
                   {direction === "rtl" ? <ChevronLeft className="size-5" /> : <ChevronRight className="size-5" />}
                 </span>
               </div>
             </div>
             <div className="pointer-events-none absolute inset-y-0 end-0 w-1/2 opacity-0 transition hover:opacity-100">
               <div className="flex h-full items-center justify-end pe-3">
-                <span className="grid size-9 place-items-center rounded-full bg-background/70 text-foreground backdrop-blur">
+                <span className="grid size-9 place-items-center rounded-full bg-background/80 text-foreground backdrop-blur">
                   {direction === "rtl" ? <ChevronRight className="size-5" /> : <ChevronLeft className="size-5" />}
                 </span>
               </div>
@@ -169,40 +190,42 @@ export function MangaReader({
           </div>
         )}
 
-        {/* Reader toolbar */}
-        <div className={`fixed inset-x-0 bottom-0 z-40 border-t border-border/50 bg-background/90 backdrop-blur-md transition-transform duration-300 ${immersive ? "translate-y-full" : ""}`}>
-          <div className="mx-auto flex h-16 max-w-4xl items-center gap-2 px-3 sm:px-4">
+        {/* Reader toolbar: Charcoal/violet styling, preserving required test structure & accessibility */}
+        <div inert={immersive} aria-label="أدوات صفحات المانجا" className={`fixed inset-x-0 bottom-0 z-40 border-t border-border/50 bg-background pb-[env(safe-area-inset-bottom)] transition-transform duration-200 motion-reduce:transition-none sm:inset-x-4 sm:bottom-4 sm:max-w-4xl sm:mx-auto sm:rounded-xl sm:border ${immersive ? "translate-y-[calc(100%+2rem)]" : ""}`}>
+          <div className="mx-auto grid max-w-4xl grid-cols-[1fr_auto_1fr] items-center gap-x-2 gap-y-1 px-3 py-2 sm:flex sm:h-16 sm:gap-2 sm:px-4 sm:py-0">
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5 border-border"
+              className="h-11 gap-1.5 rounded-xl border-border/70 sm:h-8"
               onClick={() => go(-1)}
-              disabled={index === 0 && !prev}
+              disabled={!restored || (index === 0 && !prev)}
               aria-label="الصفحة السابقة"
             >
               <ChevronRight className="size-4" />
               السابق
             </Button>
 
-            <div className="flex flex-1 items-center justify-center gap-2" dir="ltr">
+            <div className="order-last col-span-3 flex min-w-0 items-center justify-center gap-2 sm:order-none sm:flex-1" dir="ltr">
               <input
                 type="range"
                 min={0}
                 max={Math.max(total - 1, 0)}
                 value={index}
+                disabled={!restored || !total}
                 onChange={(e) => setIndex(Number(e.target.value))}
-                className="h-1.5 w-40 max-w-48 accent-[var(--primary)] sm:w-56"
+                onKeyDown={(e) => e.stopPropagation()}
+                className="h-11 min-w-0 flex-1 accent-[var(--primary)] sm:h-1.5 sm:w-56 sm:max-w-48 sm:flex-none cursor-pointer"
                 aria-label="التنقل بين الصفحات"
               />
               <span className="min-w-14 text-center text-xs tabular-nums text-muted-foreground">
-                {index + 1} / {total}
+                {total ? index + 1 : 0} / {total}
               </span>
             </div>
 
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5 border-border"
+              className="h-11 gap-1.5 rounded-xl border-border/70 sm:h-8"
               onClick={() => setDirection((d) => (d === "rtl" ? "ltr" : "rtl"))}
               title="تبديل اتجاه القراءة"
               aria-label={`اتجاه القراءة الحالي: ${direction === "rtl" ? "من اليمين لليسار" : "من اليسار لليمين"}. اضغط للتبديل.`}
@@ -214,9 +237,9 @@ export function MangaReader({
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5 border-border"
+              className="h-11 gap-1.5 rounded-xl border-border/70 sm:h-8"
               onClick={() => go(1)}
-              disabled={index >= total - 1 && !next}
+              disabled={!restored || (index >= total - 1 && (!next || next.isPremiumDemo))}
               aria-label="الصفحة التالية"
             >
               التالي
@@ -225,8 +248,8 @@ export function MangaReader({
           </div>
         </div>
 
-        {/* end-of-chapter, appears when reaching last page */}
-        {index >= total - 1 && (
+        {/* End-of-chapter card, appears when reaching last page */}
+        {total > 0 && index >= total - 1 && (
           <div className="w-full">
             <ChapterEndCard
               seriesSlug={seriesSlug}

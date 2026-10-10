@@ -23,6 +23,7 @@ datasource db {
 
 enum UserRole {
   reader
+  contributor
   editor
   admin
 
@@ -35,6 +36,15 @@ enum SeriesFormat {
   novel
 
   @@map("series_format")
+}
+
+enum SeriesCategory {
+  manga
+  manhwa
+  novel
+  comic
+
+  @@map("series_category")
 }
 
 enum SeriesStatus {
@@ -96,53 +106,130 @@ enum CommentStatus {
   @@map("comment_status")
 }
 
+enum AccountTokenPurpose {
+  verify
+  reset
+  invite
+
+  @@map("account_token_purpose")
+}
+
 model Profile {
-  id              String            @id @default(cuid())
-  email           String            @unique
-  nickname        String
-  passwordHash    String
-  role            UserRole          @default(reader)
-  avatarSeed      String            @default("v1")
-  bio             String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  readingProgress ReadingProgress[]
-  events          AnalyticsEvent[]
-  libraryItems    LibraryItem[]
-  comments        Comment[]
-  commentReports  CommentReport[]
-  ratings         Rating[]
-  notifications   Notification[]
-  commentLikes    CommentLike[]
+  id                    String             @id @default(cuid())
+  email                 String             @unique
+  nickname              String
+  passwordHash          String
+  role                  UserRole           @default(reader)
+  avatarSeed            String             @default("v1")
+  bio                   String?
+  emailVerifiedAt       DateTime?
+  disabledAt            DateTime?
+  authVersion           Int                @default(0)
+  onboardingCompletedAt DateTime?
+  preferredGenresJson   String             @default("[]")
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  readingProgress       ReadingProgress[]
+  events                AnalyticsEvent[]
+  libraryItems          LibraryItem[]
+  comments              Comment[]
+  commentReports        CommentReport[]
+  ratings               Rating[]
+  notifications         Notification[]
+  commentLikes          CommentLike[]
+  assignments           SeriesAssignment[]
+  approvedRevisions     ChapterRevision[] @relation("RevisionApprovedBy")
+  editorialEvents       ChapterEditorialEvent[]
+  accountTokens         AccountToken[]
+}
+
+model AccountToken {
+  id          String              @id @default(cuid())
+  tokenHash   String              @unique
+  purpose     AccountTokenPurpose
+  profileId   String?
+  createdById String?
+  createdByAuthVersion Int?
+  email       String
+  role        UserRole?
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  revokedAt   DateTime?
+  nextPath    String?
+  createdAt   DateTime            @default(now())
+  profile     Profile?            @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([email, purpose])
+  @@index([profileId])
+}
+
+model AccountAudit {
+  id        String   @id @default(cuid())
+  actorId   String?
+  targetId  String?
+  action    String
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([targetId])
+  @@index([action])
+}
+
+model AccountRateLimit {
+  id        String   @id @default(cuid())
+  keyHash   String   @unique
+  count     Int      @default(1)
+  windowEnd DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([keyHash, windowEnd])
 }
 
 model Series {
-  id            String            @id @default(cuid())
-  slug          String            @unique
+  id            String             @id @default(cuid())
+  slug          String             @unique
   titleAr       String
   titleOriginal String?
   synopsisAr    String
+  category      SeriesCategory?
   format        SeriesFormat
-  status        SeriesStatus      @default(ongoing)
-  genresJson    String            @default("[]")
-  tagsJson      String            @default("[]")
+  status        SeriesStatus       @default(ongoing)
+  genresJson    String             @default("[]")
+  tagsJson      String             @default("[]")
   author        String
   translator    String?
   coverPath     String
-  accent        String            @default("#9B7BFF")
-  isFeatured    Boolean           @default(false)
-  ratingAvg     Float             @default(0)
-  ratingCount   Int               @default(0)
-  displayOrder  Int               @default(0)
-  reads         Int               @default(0)
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  accent        String             @default("#9B7BFF")
+  isFeatured    Boolean            @default(false)
+  ratingAvg     Float              @default(0)
+  ratingCount   Int                @default(0)
+  displayOrder  Int                @default(0)
+  reads         Int                @default(0)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
   chapters      Chapter[]
   progress      ReadingProgress[]
   events        AnalyticsEvent[]
   libraryItems  LibraryItem[]
   comments      Comment[]
   ratings       Rating[]
+  assignments   SeriesAssignment[]
+
+  @@index([category])
+}
+
+model SeriesAssignment {
+  id        String   @id @default(cuid())
+  profileId String
+  seriesId  String
+  createdAt DateTime @default(now())
+  profile   Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  series    Series   @relation(fields: [seriesId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, seriesId])
+  @@index([seriesId])
 }
 
 model Chapter {
@@ -162,8 +249,66 @@ model Chapter {
   pages            ChapterPage[]
   progress         ReadingProgress[]
   comments         Comment[]
+  revisions        ChapterRevision[]
+  editorialEvents  ChapterEditorialEvent[]
 
   @@unique([seriesId, number])
+}
+
+enum ChapterRevisionStatus {
+  draft
+  review
+  changes_requested
+  approved
+  scheduled
+  published
+  withdrawn
+
+  @@map("chapter_revision_status")
+}
+
+model ChapterRevision {
+  id               String                @id @default(cuid())
+  chapterId        String
+  revisionNumber   Int
+  version          Int                   @default(1)
+  status           ChapterRevisionStatus @default(draft)
+  titleAr          String
+  readingDirection ReadingDirection      @default(rtl)
+  isPremiumDemo    Boolean               @default(false)
+  novelBody        String?
+  pagesJson        Json                  @default("[]")
+  scheduledFor     DateTime?
+  approvedById     String?
+  approvedAt       DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  chapter          Chapter               @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  approvedBy       Profile?              @relation("RevisionApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  events           ChapterEditorialEvent[]
+
+  @@unique([chapterId, revisionNumber])
+  @@index([chapterId, status])
+}
+
+model ChapterEditorialEvent {
+  id          String           @id @default(cuid())
+  chapterId   String
+  revisionId  String?
+  actorId     String?
+  action      String
+  reasonAr    String?
+  metadata    Json             @default("{}")
+  createdAt   DateTime         @default(now())
+
+  chapter     Chapter          @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  revision    ChapterRevision? @relation(fields: [revisionId], references: [id], onDelete: SetNull)
+  actor       Profile?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([chapterId, createdAt])
+  @@index([revisionId])
+  @@index([actorId])
 }
 
 model ChapterPage {

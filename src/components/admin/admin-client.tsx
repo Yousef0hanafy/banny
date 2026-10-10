@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogOut, Loader2, Plus, Search } from "lucide-react";
+import { LogOut, Loader2, Plus, Search, PenTool } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { updateChapterMeta, upsertSeries, createChapter } from "@/lib/actions";
-import { FORMATS, FORMAT_LABELS, GENRES, SERIES_STATUSES, STATUS_LABELS, WORKFLOWS, WORKFLOW_LABELS, type Format } from "@/lib/constants";
+import { CATEGORIES, CATEGORY_LABELS, FORMATS, FORMAT_LABELS, GENRES, SERIES_STATUSES, STATUS_LABELS, WORKFLOWS, WORKFLOW_LABELS, type Category, type Format } from "@/lib/constants";
 
 export function AdminLogoutButton({ compact = false }: { compact?: boolean }) {
   return (
@@ -82,6 +83,7 @@ type SeriesFormValues = {
   titleOriginal: string;
   slug: string;
   synopsisAr: string;
+  category?: Category | null;
   format: Format;
   status: "ongoing" | "completed" | "hiatus";
   author: string;
@@ -99,6 +101,7 @@ export function SeriesForm({ initial }: { initial?: SeriesFormValues }) {
       titleOriginal: "",
       slug: "",
       synopsisAr: "",
+      category: null,
       format: "manga",
       status: "ongoing",
       author: "",
@@ -149,13 +152,28 @@ export function SeriesForm({ initial }: { initial?: SeriesFormValues }) {
           <p className="text-[11px] text-muted-foreground">أحرف لاتينية صغيرة وأرقام وشرطات — لا يمكن تعديله لاحقًا.</p>
         </div>
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">الصيغة *</label>
+          <label className="text-sm font-medium">تصنيف المحتوى *</label>
+          <Select
+            value={values.category ?? (initial ? "none" : "")}
+            onValueChange={(v) => set("category", v === "none" ? null : (v as Category))}
+          >
+            <SelectTrigger className={field}><SelectValue placeholder="اختر تصنيف العمل" /></SelectTrigger>
+            <SelectContent>
+              {initial && <SelectItem value="none">غير مصنّف</SelectItem>}
+              {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{CATEGORY_LABELS[c]}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <p className="text-[11px] text-muted-foreground">فئة وهوية المحتوى (مانجا، مانهوا، روايات، كوميك).</p>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">طريقة القراءة (الصيغة) *</label>
           <Select value={values.format} onValueChange={(v) => set("format", v as SeriesFormValues["format"])}>
             <SelectTrigger className={field}><SelectValue /></SelectTrigger>
             <SelectContent>
               {FORMATS.map((f) => <SelectItem key={f} value={f}>{FORMAT_LABELS[f]}</SelectItem>)}
             </SelectContent>
           </Select>
+          <p className="text-[11px] text-muted-foreground">أسلوب عرض الصفحات أو التمرير أو النص في القارئ.</p>
         </div>
         <div className="space-y-1.5">
           <label className="text-sm font-medium">حالة النشر *</label>
@@ -246,98 +264,60 @@ type ChapterRow = {
   scheduledFor?: string | null;
 };
 
-export function ChapterWorkflowControls({ chapter }: { chapter: ChapterRow }) {
-  const router = useRouter();
-  const { toast } = useToast();
-  const [loading, setLoading] = useState<string | null>(null);
-
-  async function set(workflow: ChapterRow["workflow"]) {
-    setLoading(workflow);
-    const res = await updateChapterMeta({ id: chapter.id, workflow });
-    setLoading(null);
-    if (res.ok) {
-      toast({ title: "تم التحديث", description: `حالة الفصل ${chapter.number}: ${WORKFLOW_LABELS[workflow]}` });
-      router.refresh();
-    } else {
-      toast({ title: "تعذّر التحديث", description: res.error, variant: "destructive" });
-    }
-  }
-
-  async function togglePremium() {
-    setLoading("premium");
-    const res = await updateChapterMeta({ id: chapter.id, isPremiumDemo: !chapter.isPremiumDemo });
-    setLoading(null);
-    if (res.ok) {
-      toast({ title: chapter.isPremiumDemo ? "أُلغي القفل التجريبي" : "أصبح فصلًا تجريبيًا مقفلًا" });
-      router.refresh();
-    }
-  }
-
-  async function schedule(value: string) {
-    setLoading("schedule");
-    const res = await updateChapterMeta({
-      id: chapter.id,
-      scheduledFor: value ? new Date(value).toISOString() : null,
-    });
-    setLoading(null);
-    if (res.ok) {
-      toast({ title: value ? "تمت الجدولة" : "أُلغيت الجدولة", description: value ? undefined : "ينشر الفصل فورًا مع بقائه منشورًا" });
-      router.refresh();
-    } else {
-      toast({ title: "تعذّر التحديث", description: res.error, variant: "destructive" });
-    }
-  }
-
-  const scheduleValue = chapter.scheduledFor
-    ? new Date(chapter.scheduledFor).toISOString().slice(0, 16)
-    : "";
-
+export function ChapterWorkflowControls({
+  chapter,
+  isAdmin = false,
+}: {
+  chapter: ChapterRow;
+  isAdmin?: boolean;
+}) {
   return (
-    <div className="flex flex-wrap items-center justify-end gap-1.5">
-      <Select value={chapter.workflow} onValueChange={(v) => set(v as ChapterRow["workflow"])}>
-        <SelectTrigger size="sm" className="w-[110px] bg-card" aria-label="حالة سير العمل">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {WORKFLOWS.map((w) => <SelectItem key={w} value={w}>{WORKFLOW_LABELS[w]}</SelectItem>)}
-        </SelectContent>
-      </Select>
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      <span className="rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-foreground">
+        {WORKFLOW_LABELS[chapter.workflow]}
+      </span>
+      {chapter.isPremiumDemo && (
+        <span className="rounded-md border border-gold/40 bg-gold/10 px-2 py-1 text-xs text-gold">
+          مقفل
+        </span>
+      )}
+      {chapter.scheduledFor && (
+        <span className="rounded-md border border-border bg-card px-2 py-1 text-[11px] text-muted-foreground" dir="ltr">
+          {new Date(chapter.scheduledFor).toLocaleDateString("ar-EG")}
+        </span>
+      )}
       <Button
+        asChild
         variant="outline"
         size="sm"
-        className={`border-gold/40 text-gold ${chapter.isPremiumDemo ? "bg-gold/10" : ""}`}
-        onClick={togglePremium}
-        disabled={loading === "premium"}
-        title="قفل/فتح العرض التجريبي للفصل"
+        className="min-h-[44px] gap-1.5 border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
       >
-        {chapter.isPremiumDemo ? "مقفل" : "قفل تجريبي"}
+        <Link href={`/studio/chapters/${chapter.id}`}>
+          <PenTool className="size-4" aria-hidden />
+          إدارة النسخة
+        </Link>
       </Button>
-      <input
-        type="datetime-local"
-        value={scheduleValue}
-        onChange={(e) => schedule(e.target.value)}
-        disabled={loading === "schedule"}
-        aria-label={`جدولة نشر الفصل ${chapter.number}`}
-        title="جدولة النشر — فارغ يعني نشرًا فوريًا"
-        className="h-8 rounded-md border border-border bg-card px-2 text-[11px] text-muted-foreground"
-        dir="ltr"
-      />
-      {loading && loading !== "premium" && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden />}
     </div>
   );
 }
 
-export function ChapterForm({ seriesOptions }: { seriesOptions: { id: string; titleAr: string; format: Format }[] }) {
+export const ChapterWorkflowActions = ChapterWorkflowControls;
+
+export function ChapterForm({
+  seriesOptions,
+  isAdmin = false,
+}: {
+  seriesOptions: { id: string; titleAr: string; format: Format }[];
+  isAdmin?: boolean;
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [seriesId, setSeriesId] = useState(seriesOptions[0]?.id ?? "");
   const [number, setNumber] = useState("1");
   const [titleAr, setTitleAr] = useState("");
-  const [workflow, setWorkflow] = useState<"draft" | "review" | "published">("draft");
-  const [isPremiumDemo, setIsPremiumDemo] = useState(false);
+  const [workflow, setWorkflow] = useState<"draft" | "review">("draft");
   const [readingDirection, setReadingDirection] = useState<"rtl" | "ltr">("rtl");
   const [pageCount, setPageCount] = useState("8");
-  const [scheduledAt, setScheduledAt] = useState(""); // datetime-local, optional
   const [novelBody, setNovelBody] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -355,10 +335,10 @@ export function ChapterForm({ seriesOptions }: { seriesOptions: { id: string; ti
       number: Number(number),
       titleAr,
       workflow,
-      isPremiumDemo,
+      isPremiumDemo: false,
       readingDirection: isManga ? readingDirection : "rtl",
       pageCount: Number(pageCount),
-      scheduledFor: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+      scheduledFor: null,
       novelBody: isNovel ? novelBody : undefined,
     });
     setLoading(false);
@@ -367,10 +347,14 @@ export function ChapterForm({ seriesOptions }: { seriesOptions: { id: string; ti
       return;
     }
     toast({
-      title: "أُنشئ الفصل",
-      description: isNovel ? "أُضيف الفصل النصي." : scheduledAt ? "أُضيف الفصل ومُجدول للنشر." : "أُضيف الفصل مع صفحات تجريبية مجردة.",
+      title: "أُنشئ الفصل بنجاح",
+      description: "جاري الانتقال إلى استوديو التحرير لإدارة النسخة واعتمادها…",
     });
-    router.push("/admin/chapters");
+    if (res.id) {
+      router.push(`/studio/chapters/${res.id}`);
+    } else {
+      router.push("/admin/chapters");
+    }
     router.refresh();
   }
 
@@ -379,7 +363,7 @@ export function ChapterForm({ seriesOptions }: { seriesOptions: { id: string; ti
       <div className="space-y-1.5">
         <label className="text-sm font-medium">العمل *</label>
         <Select value={seriesId} onValueChange={setSeriesId}>
-          <SelectTrigger className="bg-card"><SelectValue placeholder="اختر العمل" /></SelectTrigger>
+          <SelectTrigger className="min-h-[44px] bg-card"><SelectValue placeholder="اختر العمل" /></SelectTrigger>
           <SelectContent>
             {seriesOptions.map((s) => (
               <SelectItem key={s.id} value={s.id}>
@@ -392,51 +376,40 @@ export function ChapterForm({ seriesOptions }: { seriesOptions: { id: string; ti
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
           <label className="text-sm font-medium">رقم الفصل *</label>
-          <Input type="number" min={1} required value={number} onChange={(e) => setNumber(e.target.value)} className="bg-card" />
+          <Input type="number" min={1} required value={number} onChange={(e) => setNumber(e.target.value)} className="min-h-[44px] bg-card" />
         </div>
         <div className="space-y-1.5">
           <label className="text-sm font-medium">{isManga ? "عدد الصفحات" : "عدد اللوحات"} *</label>
-          <Input type="number" min={1} max={30} required value={pageCount} onChange={(e) => setPageCount(e.target.value)} className="bg-card" />
-          <p className="text-[11px] text-muted-foreground">تُولَّد صفحات تجريبية مجردة تلقائيًا (رفع الملفات الحقيقي في إصدار لاحق).</p>
+          <Input type="number" min={1} max={30} required value={pageCount} onChange={(e) => setPageCount(e.target.value)} className="min-h-[44px] bg-card" />
+          <p className="text-[11px] text-muted-foreground">تُجهّز صفحات تلقائيًا؛ رفع ملفات الفصل غير متاح حاليًا.</p>
         </div>
       </div>
       <div className="space-y-1.5">
         <label className="text-sm font-medium">عنوان الفصل *</label>
-        <Input required value={titleAr} onChange={(e) => setTitleAr(e.target.value)} className="bg-card" placeholder="مثال: أضواء على الحدود" />
+        <Input required value={titleAr} onChange={(e) => setTitleAr(e.target.value)} className="min-h-[44px] bg-card" placeholder="مثال: أضواء على الحدود" />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <label className="text-sm font-medium">حالة سير العمل *</label>
-          <Select value={workflow} onValueChange={(v) => setWorkflow(v as typeof workflow)}>
-            <SelectTrigger className="bg-card"><SelectValue /></SelectTrigger>
+          <label className="text-sm font-medium">حالة سير العمل المبدئية *</label>
+          <Select value={workflow} onValueChange={(v) => setWorkflow(v as "draft" | "review")}>
+            <SelectTrigger className="min-h-[44px] bg-card"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {WORKFLOWS.map((w) => <SelectItem key={w} value={w}>{WORKFLOW_LABELS[w]}</SelectItem>)}
+              <SelectItem value="draft">مسودة (الافتراضي)</SelectItem>
+              <SelectItem value="review">مراجعة</SelectItem>
             </SelectContent>
           </Select>
+          <p className="text-[11px] text-muted-foreground">النشر والجدولة يتمان عبر استوديو التحرير بعد اعتماد النسخة.</p>
         </div>
         {isManga && (
           <div className="space-y-1.5">
             <label className="text-sm font-medium">اتجاه القراءة</label>
             <Select value={readingDirection} onValueChange={(v) => setReadingDirection(v as "rtl" | "ltr")}>
-              <SelectTrigger className="bg-card"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="min-h-[44px] bg-card"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="rtl">يمين ← يسار (يابانية)</SelectItem>
                 <SelectItem value="ltr">يسار → يمين</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-        )}
-        {!isNovel && (
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">جدولة النشر (اختياري)</label>
-            <Input
-              type="datetime-local"
-              value={scheduledAt}
-              onChange={(e) => setScheduledAt(e.target.value)}
-              className="bg-card"
-              dir="ltr"
-            />
-            <p className="text-[11px] text-muted-foreground">الفصول المجدولة تظهر للقراء بشارة «ينشر قريبًا» حتى موعدها.</p>
           </div>
         )}
       </div>
@@ -454,14 +427,10 @@ export function ChapterForm({ seriesOptions }: { seriesOptions: { id: string; ti
           <p className="text-[11px] text-muted-foreground">{novelBody.split(/\s+/).filter(Boolean).length} كلمة — كل سطر جديد يبدأ فقرة.</p>
         </div>
       )}
-      <label className="flex items-center gap-2.5 text-sm">
-        <input type="checkbox" checked={isPremiumDemo} onChange={(e) => setIsPremiumDemo(e.target.checked)} className="size-4 accent-[var(--primary)]" />
-        فصل تجريبي مقفل (لعرض حالة الفصول المميزة — بلا شراء)
-      </label>
       {error && <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">{error}</p>}
-      <Button type="submit" disabled={loading} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
+      <Button type="submit" disabled={loading} className="min-h-[44px] gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
         {loading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Plus className="size-4" aria-hidden />}
-        إنشاء الفصل
+        إنشاء الفصل والمتابعة للاستوديو
       </Button>
     </form>
   );

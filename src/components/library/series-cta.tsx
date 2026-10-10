@@ -62,7 +62,7 @@ export function SeriesCTA({
       {status === "unauthenticated" && (
         <p className="w-full text-xs text-muted-foreground">
           تقرأ كزائر — يُحفظ تقدمك على هذا الجهاز.{" "}
-          <Link href="/login" className="text-primary hover:underline">
+          <Link href={`/login?next=${encodeURIComponent(`/series/${slug}`)}`} className="text-primary hover:underline">
             سجّل الدخول
           </Link>{" "}
           لمزامنة القراءة لاحقًا.

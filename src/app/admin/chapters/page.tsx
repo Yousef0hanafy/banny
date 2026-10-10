@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FileEdit, Eye, CheckCircle2, Plus } from "lucide-react";
-import { getAdminChapters } from "@/lib/queries";
+import { getAdminChapters, currentProfileOrNull } from "@/lib/queries";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChapterWorkflowControls } from "@/components/admin/admin-client";
@@ -21,6 +21,8 @@ export default async function AdminChaptersPage({
 }) {
   const sp = await searchParams;
   const get = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
+  const profile = await currentProfileOrNull();
+  const isAdmin = profile?.role === "admin";
   const chapters = await getAdminChapters({ workflow: get("workflow"), format: get("format") });
 
   const filters = [
@@ -118,6 +120,7 @@ export default async function AdminChaptersPage({
                       isPremiumDemo: c.isPremiumDemo,
                       scheduledFor: c.scheduledFor ? c.scheduledFor.toISOString() : null,
                     }}
+                    isAdmin={isAdmin}
                   />
                 </td>
               </tr>

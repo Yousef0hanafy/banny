@@ -26,6 +26,7 @@ export function RatingWidget({
   const { status } = useSession();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const [hover, setHover] = useState(0);
   const [mine, setMine] = useState(userValue);
   const [agg, setAgg] = useState({ avg: ratingAvg, count: ratingCount });
@@ -35,13 +36,23 @@ export function RatingWidget({
       router.push("/login");
       return;
     }
+    setError(null);
+    const previous = mine;
     startTransition(async () => {
       setMine(value);
-      const res = await setRating({ seriesSlug: slug, value });
-      if (res.ok && typeof res.ratingAvg === "number" && typeof res.ratingCount === "number") {
+      try {
+        const res = await setRating({ seriesSlug: slug, value });
+        if (!res.ok || typeof res.ratingAvg !== "number" || typeof res.ratingCount !== "number") {
+          setMine(previous);
+          setError("تعذّر حفظ تقييمك. حاول مرة أخرى.");
+          return;
+        }
         setAgg({ avg: res.ratingAvg, count: res.ratingCount });
+        router.refresh();
+      } catch {
+        setMine(previous);
+        setError("تعذّر حفظ تقييمك. تحقق من اتصالك وحاول مرة أخرى.");
       }
-      router.refresh();
     });
   };
 
@@ -55,19 +66,20 @@ export function RatingWidget({
           <span className="font-normal text-muted-foreground">({agg.count})</span>
         </span>
       </div>
+      {error && <p role="alert" className="text-xs leading-6 text-danger">{error}</p>}
       {status === "authenticated" ? (
         <div className="flex items-center gap-1" role="radiogroup" aria-label="اختر تقييمًا من ١ إلى ٥">
           {[1, 2, 3, 4, 5].map((v) => (
             <button
               key={v}
               role="radio"
-              aria-checked={v === (hover || mine)}
+              aria-checked={v === mine}
               aria-label={`${v} من ٥`}
               disabled={pending}
               onMouseEnter={() => setHover(v)}
               onMouseLeave={() => setHover(0)}
               onClick={() => cast(v)}
-              className="rounded-md p-1 transition hover:scale-110 focus-visible:ring-2 focus-visible:ring-ring"
+              className="grid size-11 place-items-center rounded-md transition hover:scale-105 focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Star
                 className={`size-6 transition ${
