@@ -34,6 +34,7 @@ export default async function MangaReaderPage({
   return (
     <MangaReader
       key={data.chapter.id}
+      chapters={data.chapterList}
       initialProgress={initialProgress}
       seriesSlug={data.series.slug}
       seriesTitle={data.series.titleAr}

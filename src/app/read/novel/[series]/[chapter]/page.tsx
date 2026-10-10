@@ -39,6 +39,7 @@ export default async function NovelReaderPage({
   return (
     <NovelReader
       key={data.chapter.id}
+      chapters={data.chapterList}
       initialProgress={initialProgress}
       seriesSlug={data.series.slug}
       seriesTitle={data.series.titleAr}

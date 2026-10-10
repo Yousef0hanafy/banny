@@ -172,6 +172,7 @@ for (const format of ["manga", "webtoon", "novel"]) {
   test(`${format}: empty content does not persist progress`, async ({ page }) => {
     await preload(page, "[]");
     await page.goto(`/read/${format}/qa-reader-${format}/10`);
+    await expect(page.getByRole("heading", { name: "محتوى الفصل غير متاح بعد", exact: true })).toBeVisible();
     await page.waitForTimeout(1500);
     await scrollTo(page, 100);
     await page.waitForTimeout(500);

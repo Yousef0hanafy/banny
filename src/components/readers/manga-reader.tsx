@@ -1,11 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { ChevronLeft, ChevronRight, ArrowLeftRight, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ReaderChapterSelect, EmptyReaderContent, type ReaderChapter } from "@/components/readers/reader-tools";
+import { ReaderImage } from "@/components/readers/reader-image";
 import { ReaderChrome, ChapterEndCard, LockedChapterPanel } from "@/components/readers/reader-chrome";
 import { ChapterCommentsDialog } from "@/components/community/chapter-comments-dialog";
 import { saveReadingProgress } from "@/lib/actions";
@@ -21,6 +22,7 @@ export function MangaReader({
   seriesTitle,
   chapterNumber,
   chapterTitle,
+  chapters,
   pages,
   defaultDirection,
   isPremiumDemo,
@@ -33,6 +35,7 @@ export function MangaReader({
   seriesTitle: string;
   chapterNumber: number;
   chapterTitle: string;
+  chapters: ReaderChapter[];
   pages: Page[];
   defaultDirection: "rtl" | "ltr";
   isPremiumDemo: boolean;
@@ -85,7 +88,7 @@ export function MangaReader({
     const onKey = (e: KeyboardEvent) => {
       const target = e.target;
       if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey ||
-        (target instanceof HTMLElement && (target.closest("input, textarea, select, [contenteditable]")))) return;
+        (target instanceof HTMLElement && (target.closest("input, textarea, select, [role=dialog], [contenteditable]")))) return;
       if (e.key === "ArrowLeft") go(direction === "rtl" ? 1 : -1);
       if (e.key === "ArrowRight") go(direction === "rtl" ? -1 : 1);
       if (e.key === "f") setImmersive((v) => !v);
@@ -136,6 +139,7 @@ export function MangaReader({
         chapterNumber={chapterNumber}
         chapterTitle={chapterTitle}
         format="manga"
+        chapterControl={<ReaderChapterSelect seriesSlug={seriesSlug} format="manga" chapterNumber={chapterNumber} chapters={chapters} />}
         percent={percent}
         immersive={immersive}
         onToggleImmersive={() => setImmersive((v) => !v)}
@@ -147,12 +151,18 @@ export function MangaReader({
             comments={comments}
           />
         }
-      />
+      >
+        <p className="text-sm leading-7 text-muted-foreground">استخدم الأسهم أو جانبي الصفحة للتنقل. زر الاتجاه أسفل الشاشة يغيّر اتجاه القراءة.</p>
+        <button type="button" onClick={() => setDirection(value => value === "rtl" ? "ltr" : "rtl")}
+          className="mt-4 min-h-11 rounded-lg border border-border px-4 text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
+          aria-label="تبديل اتجاه المانجا">{direction === "rtl" ? "من اليمين لليسار" : "من اليسار لليمين"}</button>
+      </ReaderChrome>
 
-      <main className="flex min-h-screen flex-col items-center justify-center px-2 pb-40 pt-14 sm:px-6 sm:pb-28" aria-label="صفحات الفصل">
+      <main className="flex min-h-screen flex-col items-center justify-center px-0 pb-40 pt-20 sm:px-6 sm:pb-32" aria-label="صفحات الفصل">
+        {!total && <EmptyReaderContent format="manga" />}
         {page && (
           <div
-            className="relative w-full max-w-[560px] cursor-pointer select-none overflow-hidden rounded-xl border border-border/60 shadow-2xl"
+            className="relative w-full max-w-[560px] cursor-pointer select-none"
             onClick={(e) => {
               const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
               const clickedLeft = e.clientX - rect.left < rect.width / 2;
@@ -161,16 +171,7 @@ export function MangaReader({
             role="application"
             aria-label={`صفحة ${index + 1} من ${total} — انقر يمين الشاشة أو يسارها للتنقل`}
           >
-            <div className="relative" style={{ aspectRatio: `${page.width}/${page.height}` }}>
-              <Image
-                src={page.imagePath}
-                alt={`صفحة ${index + 1} من ${total}`}
-                fill
-                sizes="(max-width: 592px) 100vw, 560px"
-                className="object-cover"
-                priority={index === 0}
-              />
-            </div>
+            <ReaderImage key={page.id} src={page.imagePath} alt={`صفحة ${index + 1} من ${total}`} width={page.width} height={page.height} sizes="(max-width: 592px) 100vw, 560px" eager />
             {/* Subtle tap zones hint */}
             <div className="pointer-events-none absolute inset-y-0 start-0 w-1/2 opacity-0 transition hover:opacity-100">
               <div className="flex h-full items-center justify-start ps-3">
@@ -190,7 +191,7 @@ export function MangaReader({
         )}
 
         {/* Reader toolbar: Charcoal/violet styling, preserving required test structure & accessibility */}
-        <div className={`fixed inset-x-0 bottom-0 z-40 border-t border-border/50 bg-[#101217]/90 backdrop-blur-md transition-transform duration-300 ${immersive ? "translate-y-full" : ""}`}>
+        <div inert={immersive} aria-label="أدوات صفحات المانجا" className={`fixed inset-x-0 bottom-0 z-40 border-t border-border/50 bg-background pb-[env(safe-area-inset-bottom)] transition-transform duration-200 motion-reduce:transition-none sm:inset-x-4 sm:bottom-4 sm:max-w-4xl sm:mx-auto sm:rounded-xl sm:border ${immersive ? "translate-y-[calc(100%+2rem)]" : ""}`}>
           <div className="mx-auto grid max-w-4xl grid-cols-[1fr_auto_1fr] items-center gap-x-2 gap-y-1 px-3 py-2 sm:flex sm:h-16 sm:gap-2 sm:px-4 sm:py-0">
             <Button
               variant="outline"
@@ -210,14 +211,14 @@ export function MangaReader({
                 min={0}
                 max={Math.max(total - 1, 0)}
                 value={index}
-                disabled={!restored}
+                disabled={!restored || !total}
                 onChange={(e) => setIndex(Number(e.target.value))}
                 onKeyDown={(e) => e.stopPropagation()}
                 className="h-11 min-w-0 flex-1 accent-[var(--primary)] sm:h-1.5 sm:w-56 sm:max-w-48 sm:flex-none cursor-pointer"
                 aria-label="التنقل بين الصفحات"
               />
               <span className="min-w-14 text-center text-xs tabular-nums text-muted-foreground">
-                {index + 1} / {total}
+                {total ? index + 1 : 0} / {total}
               </span>
             </div>
 
@@ -248,7 +249,7 @@ export function MangaReader({
         </div>
 
         {/* End-of-chapter card, appears when reaching last page */}
-        {index >= total - 1 && (
+        {total > 0 && index >= total - 1 && (
           <div className="w-full">
             <ChapterEndCard
               seriesSlug={seriesSlug}

@@ -28,7 +28,7 @@ export function ChapterCommentsDialog({
         <Button
           variant="ghost"
           size="sm"
-          className="h-9 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
+          className="h-11 min-w-11 gap-1.5 px-2.5 text-xs text-muted-foreground hover:text-foreground"
           aria-label={comments.length > 0 ? `تعليقات الفصل ${chapterNumber} — ${comments.length}` : "تعليقات الفصل"}
         >
           <MessageCircle className="size-4" aria-hidden />

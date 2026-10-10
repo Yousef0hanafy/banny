@@ -33,6 +33,7 @@ export default async function WebtoonReaderPage({
   return (
     <WebtoonReader
       key={data.chapter.id}
+      chapters={data.chapterList}
       initialProgress={initialProgress}
       seriesSlug={data.series.slug}
       seriesTitle={data.series.titleAr}
