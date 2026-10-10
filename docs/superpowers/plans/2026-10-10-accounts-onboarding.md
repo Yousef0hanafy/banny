@@ -16,7 +16,8 @@ Preserve existing design/logo/readers/studio and all user files. Work in the exi
 
 ## Tasks
 
-- [ ] Schema/migration, validated account/token/throttle services, mail transport, registration/verification/reset/invitation/state/password operations and fresh NextAuth session validation. Tests for the trust boundaries first; preserve existing role/action tests.
-- [ ] Arabic account forms, onboarding, settings/avatar, return destinations, admin invitations/status, private local admin mailbox and helpful initial empty states. Keep guest reading open.
-- [ ] Isolated security tests, one production build, focused desktop/mobile browser journeys and one read-only Claude review. Fix material findings together and repeat affected checks only.
-- [ ] Operator SMTP instructions, verification evidence, local integration and loopback migration without resetting data.
+- [x] Schema/migration, validated account/token/throttle services, mail transport, registration/verification/reset/invitation/state/password operations and fresh NextAuth session validation. Tests for the trust boundaries first; preserve existing role/action tests.
+- [x] Arabic account forms, onboarding, settings/avatar, return destinations, admin invitations/status, private local admin mailbox and helpful initial empty states. Keep guest reading open.
+- [x] Isolated security tests, one production build, focused desktop/mobile browser journeys and one read-only Claude review. Fix material findings together and repeat affected checks only.
+- [x] Operator SMTP instructions, verification evidence, local integration and loopback migration without resetting data.
+

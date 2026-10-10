@@ -20,4 +20,5 @@ Final isolated QA cleanup verified owned processes stopped, ports closed and its
 
 Email tests capture privately on loopback. No Gmail messages sent or credentials committed. Live SMTP validation, trusted production proxy/edge throttling, external migration/deployment, social login, arbitrary uploads, advanced recommendations and SEO remain outside this phase. See `docs/account-email-setup.md`.
 
-Local integration into the main checkout and preview restart are the remaining delivery check.
+Local integration verified: main fast-forwarded to a90adeb, dependencies installed with the frozen lockfile, saved PostgreSQL stopped gracefully and restarted without reseeding. Migration 20261010200000_account_onboarding applied successfully to the loopback bunny_local_preview database. Main preview is running at localhost:3000. Mobile registration smoke: HTTP 200, zero horizontal overflow; authenticated admin users and private mailbox pages: HTTP 200 with their expected headings. Initial cold dev compilation exceeded the 30-second browser navigation default; the warm/120-second confirmation passed. Main retains the unrelated untracked AGENTS.md, CLAUDE.md, public/series and run files.
+
