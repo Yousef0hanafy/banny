@@ -19,9 +19,9 @@ export async function withSerializableTx(
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
       const result = await db.$transaction(async tx => {
-        const profile = sessionProfile ? await tx.profile.findUnique({ where: { id: sessionProfile.id }, select: { id: true, role: true, nickname: true } }) : null;
-        if (!options.system && !profile) return { ok: false, error: "unauthenticated" };
-        const actor: Actor = profile ?? { id: null, role: "admin", nickname: "الناشر المجدول" };
+        const profile = sessionProfile ? await tx.profile.findUnique({ where: { id: sessionProfile.id }, select: { id: true, role: true, nickname: true, disabledAt: true, emailVerifiedAt: true, authVersion: true } }) : null;
+        if (!options.system && (!profile || profile.disabledAt || !profile.emailVerifiedAt || profile.authVersion !== sessionProfile?.authVersion)) return { ok: false, error: "unauthenticated" };
+        const actor: Actor = profile ? { id: profile.id, role: profile.role, nickname: profile.nickname } : { id: null, role: "admin", nickname: "الناشر المجدول" };
         return work(tx, actor);
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 10000, timeout: 15000 });
       if (result.ok && options.invalidate !== false) {

@@ -31,7 +31,7 @@ async function seedProfiles() {
   for (const acc of DEMO_ACCOUNTS) {
     await db.profile.upsert({
       where: { email: acc.email },
-      update: { nickname: acc.nickname, role: acc.role as UserRole },
+      update: { nickname: acc.nickname, role: acc.role as UserRole, emailVerifiedAt: new Date(), disabledAt: null },
       create: {
         email: acc.email,
         nickname: acc.nickname,
@@ -39,6 +39,9 @@ async function seedProfiles() {
         passwordHash: hashPassword(acc.password),
         avatarSeed: `seed-${hashSeed(acc.email) % 6}`,
         bio: "",
+        emailVerifiedAt: new Date(),
+        disabledAt: null,
+        authVersion: 0,
       },
     });
   }

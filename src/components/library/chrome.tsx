@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { AccountAvatar } from "@/components/accounts/account-avatar";
 import { getCurrentUserRole } from "@/lib/actions";
 import type { Role } from "@/lib/constants";
 
@@ -67,6 +68,9 @@ export function SiteHeader() {
 
   const currentRole = roleSnapshot && roleSnapshot.userId === userId ? roleSnapshot.role : null;
   const isStaff = currentRole === "admin" || currentRole === "editor" || currentRole === "contributor";
+
+  const loginNext = pathname && pathname !== "/login" && pathname !== "/" ? `?next=${encodeURIComponent(pathname)}` : "";
+  const loginHref = `/login${loginNext}`;
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md">
@@ -156,11 +160,11 @@ export function SiteHeader() {
                   className="flex size-11 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   aria-label="قائمة الحساب"
                 >
-                  <Avatar className="size-9 border border-border">
-                    <AvatarFallback className="bg-primary/20 text-primary text-sm font-semibold">
-                      {(session.user?.name ?? "؟").slice(0, 1)}
-                    </AvatarFallback>
-                  </Avatar>
+                  <AccountAvatar
+                    seed={(session.user as { avatarSeed?: string })?.avatarSeed}
+                    name={session.user?.name}
+                    className="size-9 border border-border"
+                  />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-52">
@@ -199,7 +203,7 @@ export function SiteHeader() {
             </DropdownMenu>
           ) : (
             <Button asChild size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90">
-              <Link href="/login">تسجيل الدخول</Link>
+              <Link href={loginHref}>تسجيل الدخول</Link>
             </Button>
           )}
         </div>
@@ -211,12 +215,15 @@ export function SiteHeader() {
 export function BottomNav() {
   const pathname = usePathname();
   const { status } = useSession();
+  const loginNext = pathname && pathname !== "/login" && pathname !== "/" ? `?next=${encodeURIComponent(pathname)}` : "";
+  const loginHref = `/login${loginNext}`;
+
   const items = [
     { href: "/", label: "الرئيسية", icon: BookOpenText },
     { href: "/explore", label: "استكشف", icon: Compass },
     { href: "/library", label: "المكتبة", icon: Library },
     { href: "/updates", label: "التحديثات", icon: BookMarked },
-    { href: status === "authenticated" ? "/profile" : "/login", label: status === "authenticated" ? "حسابي" : "دخول", icon: UserRound },
+    { href: status === "authenticated" ? "/profile" : loginHref, label: status === "authenticated" ? "حسابي" : "دخول", icon: UserRound },
   ];
   if (pathname.startsWith("/admin") || pathname.startsWith("/read/")) return null;
   return (

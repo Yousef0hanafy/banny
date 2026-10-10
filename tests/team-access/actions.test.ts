@@ -12,23 +12,25 @@ beforeAll(async () => {
   // Create dedicated test profiles
   contribUser = await db.profile.upsert({
     where: { email: "team-contrib@bunny.test" },
-    update: { role: "contributor" },
+    update: { role: "contributor", emailVerifiedAt: new Date(), disabledAt: null },
     create: {
       email: "team-contrib@bunny.test",
       nickname: "مساهم اختبار",
       passwordHash: "test-hash",
       role: "contributor",
+      emailVerifiedAt: new Date(),
     },
   });
 
   editorUser = await db.profile.upsert({
     where: { email: "team-editor-peer@bunny.test" },
-    update: { role: "editor" },
+    update: { role: "editor", emailVerifiedAt: new Date(), disabledAt: null },
     create: {
       email: "team-editor-peer@bunny.test",
       nickname: "محرر اختبار",
       passwordHash: "test-hash",
       role: "editor",
+      emailVerifiedAt: new Date(),
     },
   });
 

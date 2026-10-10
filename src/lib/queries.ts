@@ -22,7 +22,10 @@ export async function requireProfile() {
   const session = await getSession();
   if (!session?.user?.id) redirect("/login");
   const profile = await db.profile.findUnique({ where: { id: session.user.id } });
-  if (!profile) redirect("/login");
+  if (!profile || profile.disabledAt || !profile.emailVerifiedAt) redirect("/login");
+  if (profile.authVersion !== session.user.authVersion) {
+    redirect("/login");
+  }
   return profile;
 }
 
@@ -35,7 +38,12 @@ export async function requireRole(roles: Role[]) {
 export async function currentProfileOrNull() {
   const session = await getSession();
   if (!session?.user?.id) return null;
-  return db.profile.findUnique({ where: { id: session.user.id } });
+  const profile = await db.profile.findUnique({ where: { id: session.user.id } });
+  if (!profile || profile.disabledAt || !profile.emailVerifiedAt) return null;
+  if (profile.authVersion !== session.user.authVersion) {
+    return null;
+  }
+  return profile;
 }
 
 /* ------------------------------------------------------------------ */
@@ -777,6 +785,7 @@ export async function getAdminUsers() {
     orderBy: { createdAt: "asc" },
     select: {
       id: true, email: true, nickname: true, role: true, avatarSeed: true, createdAt: true,
+      emailVerifiedAt: true, disabledAt: true,
       _count: { select: { comments: true, libraryItems: true, readingProgress: true } },
     },
   });

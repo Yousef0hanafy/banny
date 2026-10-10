@@ -90,7 +90,7 @@ test("Test 1: Guest cannot render studio editor and is redirected to login", asy
   await page.goto(`/studio/chapters/${chapter.id}`);
   await page.waitForURL(/\/login/);
   expect(page.url()).toContain("/login");
-  await expect(page.getByText(/تسجيل الدخول/)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "تسجيل الدخول", exact: true })).toBeVisible();
 });
 
 test("Test 2: Full editorial cycle: edit draft, submit, approve, and publish -> public reader verifies text change", async ({

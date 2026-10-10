@@ -111,7 +111,7 @@ export function WorkHeroActions({
       {status === "unauthenticated" && (
         <p className="text-xs text-muted-foreground">
           تقرأ كزائر — يُحفظ تقدمك على هذا الجهاز.{" "}
-          <Link href="/login" className="font-medium text-primary hover:underline">
+          <Link href={`/login?next=${encodeURIComponent(`/series/${slug}`)}`} className="font-medium text-primary hover:underline">
             سجّل الدخول
           </Link>{" "}
           لمزامنة القراءة عبر أجهزتك.

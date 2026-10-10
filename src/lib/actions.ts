@@ -575,6 +575,7 @@ export async function setRating(input: unknown): Promise<ActionResult & { rating
 const profileSchema = z.object({
   nickname: z.string().trim().min(2, "الاسم قصير جدًا").max(40),
   bio: z.string().trim().max(300).optional(),
+  avatarSeed: z.enum(["initials", "bunny", "violet", "teal", "gold"]).optional(),
 });
 
 export async function updateProfile(input: unknown): Promise<ActionResult> {
@@ -584,7 +585,7 @@ export async function updateProfile(input: unknown): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "invalid" };
   await db.profile.update({
     where: { id: profile.id },
-    data: { nickname: parsed.data.nickname, bio: parsed.data.bio || null },
+    data: { nickname: parsed.data.nickname, bio: parsed.data.bio || null, ...(parsed.data.avatarSeed ? { avatarSeed: parsed.data.avatarSeed } : {}) },
   });
   revalidatePath("/profile");
   return { ok: true };
@@ -732,7 +733,7 @@ export async function setSeriesAssignment(input: unknown): Promise<ActionResult>
       const res = await db.$transaction(
         async (tx) => {
           const actor = await tx.profile.findUnique({ where: { id: me.id } });
-          if (!actor || actor.role !== "admin") {
+            if (!actor || actor.role !== "admin" || actor.disabledAt || !actor.emailVerifiedAt || actor.authVersion !== me.authVersion) {
             return { ok: false, error: "forbidden" };
           }
           const [series, target] = await Promise.all([
@@ -791,7 +792,7 @@ export async function setUserRole(profileId: string, role: Role): Promise<Action
       const res = await db.$transaction(
         async (tx) => {
           const actor = await tx.profile.findUnique({ where: { id: me.id } });
-          if (!actor || actor.role !== "admin") {
+          if (!actor || actor.role !== "admin" || actor.disabledAt || !actor.emailVerifiedAt) {
             return { ok: false, error: "forbidden" };
           }
           if (profileId === actor.id && role !== "admin") {
@@ -801,21 +802,38 @@ export async function setUserRole(profileId: string, role: Role): Promise<Action
           if (!target) {
             return { ok: false, error: "not_found" };
           }
-          if (target.role === "admin" && role !== "admin") {
-            const adminCount = await tx.profile.count({ where: { role: "admin" } });
+            if (target.role === "admin" && !target.disabledAt && target.emailVerifiedAt && role !== "admin") {
+            const adminCount = await tx.profile.count({
+              where: {
+                role: "admin",
+                disabledAt: null,
+                emailVerifiedAt: { not: null },
+              },
+            });
             if (adminCount <= 1) {
               return { ok: false, error: "last_admin" };
             }
           }
           await tx.profile.update({
             where: { id: profileId },
-            data: { role },
+            data: {
+              role,
+              authVersion: { increment: 1 },
+            },
           });
           if (role === "reader") {
             await tx.seriesAssignment.deleteMany({
               where: { profileId },
             });
           }
+          await tx.accountAudit.create({
+            data: {
+              actorId: actor.id,
+              targetId: target.id,
+              action: "role_changed",
+              metadata: { oldRole: target.role, newRole: role },
+            },
+          });
           return { ok: true };
         },
         {

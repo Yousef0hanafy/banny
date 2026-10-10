@@ -11,7 +11,7 @@ let number = 0;
 beforeAll(async () => {
   adminId = (await db.profile.findUniqueOrThrow({ where: { email: "admin@bunny.demo" } })).id;
   readerId = (await db.profile.findUniqueOrThrow({ where: { email: "reader@bunny.demo" } })).id;
-  contributorId = (await db.profile.create({ data: { email: "coordinator-version@bunny.test", nickname: "مساهم", role: "contributor", passwordHash: "test" } })).id;
+  contributorId = (await db.profile.create({ data: { email: "coordinator-version@bunny.test", nickname: "مساهم", role: "contributor", passwordHash: "test", emailVerifiedAt: new Date() } })).id;
   seriesId = (await db.series.create({ data: { slug: "coordinator-editorial-version", titleAr: "اختبار النسخ", synopsisAr: "معزول", format: "novel", author: "اختبار", coverPath: "" } })).id;
   await db.seriesAssignment.create({ data: { profileId: contributorId, seriesId } });
   await db.libraryItem.create({ data: { profileId: readerId, seriesId, shelf: "reading" } });

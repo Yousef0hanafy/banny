@@ -106,27 +106,85 @@ enum CommentStatus {
   @@map("comment_status")
 }
 
+enum AccountTokenPurpose {
+  verify
+  reset
+  invite
+
+  @@map("account_token_purpose")
+}
+
 model Profile {
-  id              String             @id @default(cuid())
-  email           String             @unique
-  nickname        String
-  passwordHash    String
-  role            UserRole           @default(reader)
-  avatarSeed      String             @default("v1")
-  bio             String?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  readingProgress ReadingProgress[]
-  events          AnalyticsEvent[]
-  libraryItems    LibraryItem[]
-  comments        Comment[]
-  commentReports  CommentReport[]
-  ratings         Rating[]
-  notifications   Notification[]
-  commentLikes    CommentLike[]
-  assignments     SeriesAssignment[]
-  approvedRevisions ChapterRevision[] @relation("RevisionApprovedBy")
-  editorialEvents   ChapterEditorialEvent[]
+  id                    String             @id @default(cuid())
+  email                 String             @unique
+  nickname              String
+  passwordHash          String
+  role                  UserRole           @default(reader)
+  avatarSeed            String             @default("v1")
+  bio                   String?
+  emailVerifiedAt       DateTime?
+  disabledAt            DateTime?
+  authVersion           Int                @default(0)
+  onboardingCompletedAt DateTime?
+  preferredGenresJson   String             @default("[]")
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  readingProgress       ReadingProgress[]
+  events                AnalyticsEvent[]
+  libraryItems          LibraryItem[]
+  comments              Comment[]
+  commentReports        CommentReport[]
+  ratings               Rating[]
+  notifications         Notification[]
+  commentLikes          CommentLike[]
+  assignments           SeriesAssignment[]
+  approvedRevisions     ChapterRevision[] @relation("RevisionApprovedBy")
+  editorialEvents       ChapterEditorialEvent[]
+  accountTokens         AccountToken[]
+}
+
+model AccountToken {
+  id          String              @id @default(cuid())
+  tokenHash   String              @unique
+  purpose     AccountTokenPurpose
+  profileId   String?
+  createdById String?
+  createdByAuthVersion Int?
+  email       String
+  role        UserRole?
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  revokedAt   DateTime?
+  nextPath    String?
+  createdAt   DateTime            @default(now())
+  profile     Profile?            @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@index([email, purpose])
+  @@index([profileId])
+}
+
+model AccountAudit {
+  id        String   @id @default(cuid())
+  actorId   String?
+  targetId  String?
+  action    String
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([targetId])
+  @@index([action])
+}
+
+model AccountRateLimit {
+  id        String   @id @default(cuid())
+  keyHash   String   @unique
+  count     Int      @default(1)
+  windowEnd DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([keyHash, windowEnd])
 }
 
 model Series {

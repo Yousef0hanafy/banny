@@ -105,6 +105,10 @@ try {
     process.env.NEXTAUTH_SECRET = config.secret;
     process.env.NEXTAUTH_URL = "http://localhost:3000";
     process.env.NODE_ENV = "development";
+    process.env.BUNNY_LOCAL_PREVIEW = "1";
+    process.env.ACCOUNT_MAIL_MODE = "local";
+    process.env.ACCOUNT_MAIL_LOCAL_DIR = path.join(stateDir, "mailbox");
+    process.env.APP_ORIGIN = "http://localhost:3000";
     // This branch creates its own loopback URL; configured external databases never reach setup commands.
     const prisma = path.join(repo, "node_modules/prisma/build/index.js");
     console.log("Bunny Library: preparing the local database schema...");

@@ -35,7 +35,7 @@ export function LibraryButton({ slug, initialShelf, compact = false }: { slug: s
     <Button size="lg" variant="outline" disabled={pending || status === "loading"}
       aria-label={label} aria-describedby={error ? errorId : undefined}
       className={"h-11 gap-2 " + (shelf ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15" : "border-border") + " " + (compact ? "w-11 px-0 lg:w-auto lg:px-4" : "")}
-      onClick={shelf && status === "authenticated" ? undefined : () => status === "unauthenticated" ? router.push("/login") : apply("reading")}>
+      onClick={shelf && status === "authenticated" ? undefined : () => status === "unauthenticated" ? router.push(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`) : apply("reading")}>
       <Icon className="size-4" aria-hidden />
       <span className={compact ? "hidden lg:inline" : ""}>{label}</span>
     </Button>

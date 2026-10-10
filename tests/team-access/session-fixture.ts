@@ -10,10 +10,11 @@ mock.module("next-auth", () => ({
   getServerSession: async () => {
     const request = requestActor.getStore();
     const id = request ? request.id : actorId;
-    return id ? { user: { id } } : null;
+    return id ? { user: { id, authVersion: 0 } } : null;
   },
 }));
 mock.module("next/cache", () => ({ revalidatePath: () => {} }));
+mock.module("next/headers", () => ({ headers: async () => new Headers() }));
 
 export const { db } = await import("../../src/lib/db");
 export const actions = await import("../../src/lib/actions");

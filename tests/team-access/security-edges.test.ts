@@ -10,7 +10,7 @@ let novelId: string;
 let otherId: string;
 beforeAll(async () => {
   adminId = (await db.profile.findUniqueOrThrow({ where: { email: "admin@bunny.demo" } })).id;
-  staffId = (await db.profile.create({ data: { email: `edge-${suffix}@bunny.test`, nickname: "مساهم حدود الصلاحيات", passwordHash: "test-only", role: "contributor" } })).id;
+  staffId = (await db.profile.create({ data: { email: `edge-${suffix}@bunny.test`, nickname: "مساهم حدود الصلاحيات", passwordHash: "test-only", role: "contributor", emailVerifiedAt: new Date() } })).id;
   const data = { titleAr: "عمل تحقق الصلاحيات", synopsisAr: "ملخص اختبار مستقل لحدود الصلاحيات والإسناد", author: "مؤلف اختبار", coverPath: "/art/covers/warden-of-the-twilight-gate.webp" };
   novelId = (await db.series.create({ data: { ...data, slug: `edge-novel-${suffix}`, format: "novel" } })).id;
   otherId = (await db.series.create({ data: { ...data, slug: `edge-other-${suffix}`, format: "manga" } })).id;

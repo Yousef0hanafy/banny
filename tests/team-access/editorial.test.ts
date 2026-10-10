@@ -28,22 +28,22 @@ beforeAll(async () => {
 
   const editor = await db.profile.upsert({
     where: { email: "editorial-editor@bunny.test" },
-    update: { role: "editor" },
-    create: { email: "editorial-editor@bunny.test", nickname: "محرر التحرير", passwordHash: "x", role: "editor" },
+    update: { role: "editor", emailVerifiedAt: new Date(), disabledAt: null },
+    create: { email: "editorial-editor@bunny.test", nickname: "محرر التحرير", passwordHash: "x", role: "editor", emailVerifiedAt: new Date() },
   });
   editorId = editor.id;
 
   const contrib = await db.profile.upsert({
     where: { email: "editorial-contrib@bunny.test" },
-    update: { role: "contributor" },
-    create: { email: "editorial-contrib@bunny.test", nickname: "مساهم التحرير", passwordHash: "x", role: "contributor" },
+    update: { role: "contributor", emailVerifiedAt: new Date(), disabledAt: null },
+    create: { email: "editorial-contrib@bunny.test", nickname: "مساهم التحرير", passwordHash: "x", role: "contributor", emailVerifiedAt: new Date() },
   });
   contribId = contrib.id;
 
   const otherStaff = await db.profile.upsert({
     where: { email: "editorial-other@bunny.test" },
-    update: { role: "contributor" },
-    create: { email: "editorial-other@bunny.test", nickname: "مساهم آخر", passwordHash: "x", role: "contributor" },
+    update: { role: "contributor", emailVerifiedAt: new Date(), disabledAt: null },
+    create: { email: "editorial-other@bunny.test", nickname: "مساهم آخر", passwordHash: "x", role: "contributor", emailVerifiedAt: new Date() },
   });
   otherStaffId = otherStaff.id;
 

@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { BookMarked, BookOpenCheck, Check, Flame, MessageSquare, Star, History, Trophy } from "lucide-react";
 import { SiteHeader, SiteFooter, BottomNav } from "@/components/library/chrome";
 import { ProfileSettings } from "@/components/library/profile-settings";
+import { AccountAvatar } from "@/components/accounts/account-avatar";
 import { ReadingActivityChart } from "@/components/library/reading-activity-chart";
 import {
   requireProfile,
@@ -60,14 +61,26 @@ export default async function ProfilePage() {
         <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
           {/* identity */}
           <header className="flex items-center gap-4">
-            <Avatar className="size-16 border border-border">
-              <AvatarFallback className="bg-primary/20 text-primary text-xl font-bold">
-                {profile.nickname.slice(0, 1)}
-              </AvatarFallback>
-            </Avatar>
+            <AccountAvatar
+              seed={profile.avatarSeed}
+              name={profile.nickname}
+              className="size-16 text-2xl font-bold border border-border"
+              brandMarkSize="size-10"
+            />
             <div>
               <h1 className="text-2xl font-bold">{profile.nickname}</h1>
-              <p className="text-xs text-muted-foreground" dir="ltr">{profile.email}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-muted-foreground font-mono" dir="ltr">{profile.email}</p>
+                {profile.emailVerifiedAt ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+                    <Check className="size-3" aria-hidden /> مفعّل
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
+                    بانتظار التأكيد
+                  </span>
+                )}
+              </div>
               {bio && <p className="mt-1.5 max-w-md text-sm leading-7 text-foreground/85">{bio}</p>}
             </div>
           </header>
@@ -180,7 +193,7 @@ export default async function ProfilePage() {
             {/* settings */}
             <section aria-label="إعدادات الحساب" className="rounded-2xl border border-border/60 bg-card p-4">
               <h2 className="mb-3 text-sm font-bold">إعدادات الحساب</h2>
-              <ProfileSettings nickname={profile.nickname} bio={bio} />
+              <ProfileSettings nickname={profile.nickname} bio={bio} avatarSeed={profile.avatarSeed} />
             </section>
 
             {/* favorite genres */}

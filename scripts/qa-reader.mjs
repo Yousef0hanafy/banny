@@ -49,6 +49,7 @@ const env = { ...process.env, DATABASE_URL: databaseURL, DIRECT_URL: databaseURL
   NEXTAUTH_URL: baseURL, NEXTAUTH_SECRET: randomBytes(32).toString("hex"),
   READER_QA_DATABASE_URL: databaseURL, READER_QA_DATABASE_NAME: name,
   READER_TEST_BASE_URL: baseURL, READER_QA_RUN_DIR: runDir, NEXT_TELEMETRY_DISABLED: "1",
+  ACCOUNT_MAIL_MODE: "local", ACCOUNT_MAIL_LOCAL_DIR: path.join(runDir, "mailbox"), APP_ORIGIN: baseURL,
   HOSTNAME: "127.0.0.1", PORT: String(appPort), NODE_ENV: "production" };
 const interruptController = new AbortController();
 function start(command, args, label, cwd = repo) {
@@ -115,7 +116,7 @@ try {
   const hasActionTests = await stat(actionTests).then(() => true, () => false);
   if (process.argv.includes("--actions-only") && !hasActionTests) throw new Error("Team action tests missing");
   if (hasActionTests) {
-    await run("bun", ["test", `--tsconfig-override=${path.join(repo, "tsconfig.json")}`, actionTests], "team-access", runDir);
+    await run("bun", ["test", `--tsconfig-override=${path.join(repo, "tsconfig.json")}`, `--preload=${path.join(actionTests, "session-fixture.ts")}`, actionTests], "team-access", runDir);
   }
   if (!process.argv.includes("--actions-only")) {
   await run(process.execPath, [path.join(repo, "node_modules/next/dist/bin/next"), "build", "--webpack"], "build");
@@ -153,8 +154,8 @@ try {
   // Graceful shutdown is necessary on Windows PG 18: force-killing the
   // postmaster can leave IO workers holding its listening socket open.
   if (pg.process && pg.process.exitCode === null) {
-    const stop = start(binaries.pg_ctl, ["-D", dataDir, "stop", "-m", "fast", "-w", "-t", "10"], "postgres-stop", runDir);
-    const [code] = await bounded(once(stop, "exit"), 15_000, "PostgreSQL shutdown", false).catch(() => [1]);
+    const stop = start(binaries.pg_ctl, ["-D", dataDir, "stop", "-m", "fast", "-w", "-t", "30"], "postgres-stop", runDir);
+    const [code] = await bounded(once(stop, "exit"), 35_000, "PostgreSQL shutdown", false).catch(() => [1]);
     if (code !== 0) { log("Graceful PostgreSQL shutdown failed"); process.exitCode = 1; await stopChild(pg.process); }
     else log("Owned PostgreSQL cluster stopped gracefully");
     pg.process = undefined;
