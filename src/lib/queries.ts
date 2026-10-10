@@ -355,7 +355,7 @@ export type ContinueReadingItem = {
 
 export async function getContinueReading(profileId: string, limit = 3): Promise<ContinueReadingItem[]> {
   const rows = await db.readingProgress.findMany({
-    where: { profileId, completed: false, percent: { gt: 0, lt: 100 }, chapter: { ...liveChapterWhere(), isPremiumDemo: false } },
+    where: { profileId, completed: false, percent: { gt: 0, lt: 99 }, chapter: { ...liveChapterWhere(), isPremiumDemo: false } },
     orderBy: { updatedAt: "desc" },
     take: limit,
     include: {
@@ -570,6 +570,7 @@ export async function getAssignableStaff() {
 
 export type LibraryEntry = {
   series: SeriesCard;
+  titleOriginal: string;
   shelf: "reading" | "plan" | "finished";
   addedAt: Date;
   unreadCount: number;
@@ -588,7 +589,7 @@ export async function getLibrary(profileId: string, shelf?: string): Promise<Lib
   if (items.length === 0) return [];
   const seriesIds = items.map((i) => i.series.id);
   const progressRows = await db.readingProgress.findMany({
-    where: { profileId, seriesId: { in: seriesIds }, completed: true },
+    where: { profileId, seriesId: { in: seriesIds }, OR: [{ completed: true }, { percent: { gte: 99 } }] },
     select: { seriesId: true, chapterId: true },
   });
   const readBy = new Map<string, Set<string>>();
@@ -602,6 +603,7 @@ export async function getLibrary(profileId: string, shelf?: string): Promise<Lib
     const unreadCount = liveChapterIds.filter((id) => !readSet.has(id)).length;
     return {
       series: toCard(item.series),
+      titleOriginal: item.series.titleOriginal ?? "",
       shelf: item.shelf as LibraryEntry["shelf"],
       addedAt: item.createdAt,
       unreadCount,
@@ -621,7 +623,7 @@ export type UpdatesFeedItem = {
   publishedAt: Date;
   isPremiumDemo: boolean;
   read: boolean;
-  series: { slug: string; titleAr: string; coverPath: string; accent: string; format: Format };
+  series: { slug: string; titleAr: string; coverPath: string; accent: string; format: Format; category: Category | null };
 };
 
 export async function getLibraryUpdatesFeed(profileId: string, limit = 40): Promise<UpdatesFeedItem[]> {
@@ -633,7 +635,7 @@ export async function getLibraryUpdatesFeed(profileId: string, limit = 40): Prom
     orderBy: { publishedAt: "desc" },
     take: limit,
     include: {
-      series: { select: { slug: true, titleAr: true, coverPath: true, accent: true, format: true } },
+      series: { select: { slug: true, titleAr: true, coverPath: true, accent: true, format: true, category: true } },
     },
   });
   if (chapters.length === 0) return [];
@@ -649,7 +651,7 @@ export async function getLibraryUpdatesFeed(profileId: string, limit = 40): Prom
     publishedAt: (c.publishedAt ?? c.createdAt) as Date,
     isPremiumDemo: c.isPremiumDemo,
     read: readSet.has(c.id),
-    series: c.series,
+    series: { ...c.series, coverPath: displayCover(c.series.coverPath) },
   }));
 }
 

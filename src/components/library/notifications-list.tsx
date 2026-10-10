@@ -30,36 +30,47 @@ const TYPE_META: Record<string, { icon: typeof BellOff; classes: string }> = {
 
 export function NotificationsList({ items, unread }: { items: NotificationRow[]; unread: number }) {
   const router = useRouter();
-  const [rows, setRows] = useState(items);
-  const [remaining, setRemaining] = useState(unread);
-  const [, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const rows = items;
+  const remaining = unread;
 
   const markAll = () => {
-    setRows((list) => list.map((it) => ({ ...it, read: true })));
-    setRemaining(0);
+    setError(null);
     startTransition(async () => {
-      await markAllNotificationsRead();
-      router.refresh();
+      try {
+        const result = await markAllNotificationsRead();
+        if (!result.ok) throw new Error("save failed");
+        router.refresh();
+      } catch {
+        setError("تعذّر تحديث الإشعارات. حاول مرة أخرى.");
+      }
     });
   };
 
   const open = (it: NotificationRow) => {
-    if (!it.read) {
-      setRows((list) => list.map((x) => (x.id === it.id ? { ...x, read: true } : x)));
-      setRemaining((u) => Math.max(0, u - 1));
-      startTransition(async () => {
-        await markNotificationRead({ id: it.id });
-      });
-    }
-    if (it.href) router.push(it.href);
+    setError(null);
+    startTransition(async () => {
+      try {
+        if (!it.read) {
+          const result = await markNotificationRead({ id: it.id });
+          if (!result.ok) throw new Error("save failed");
+        }
+        if (it.href) router.push(it.href);
+        else router.refresh();
+      } catch {
+        setError("تعذّر تحديث الإشعار. حاول مرة أخرى.");
+      }
+    });
   };
 
   return (
     <div className="mt-6 pb-10">
+      {error && <p role="alert" className="mb-3 text-sm leading-7 text-danger">{error}</p>}
       {remaining > 0 && (
         <div className="mb-3 flex items-center justify-between">
           <span className="text-xs text-muted-foreground">{remaining} إشعارًا غير مقروء</span>
-          <Button variant="ghost" size="sm" className="h-7 gap-1.5 px-2 text-xs text-primary hover:text-primary" onClick={markAll}>
+          <Button variant="ghost" size="sm" disabled={pending} className="min-h-11 gap-1.5 px-2 text-sm text-primary hover:text-primary" onClick={markAll}>
             <CheckCheck className="size-3.5" aria-hidden />
             تعليم الكل كمقروء
           </Button>
@@ -103,6 +114,7 @@ export function NotificationsList({ items, unread }: { items: NotificationRow[];
                 {it.href ? (
                   <button
                     onClick={() => open(it)}
+                    disabled={pending}
                     className={`flex w-full items-start gap-3 rounded-2xl border border-border/60 bg-card p-4 text-start transition hover:border-primary/30 hover:bg-accent/30 ${it.read ? "" : "border-primary/25 bg-primary/5"}`}
                   >
                     {body}

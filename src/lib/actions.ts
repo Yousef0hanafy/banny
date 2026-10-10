@@ -743,7 +743,7 @@ export async function markNotificationRead(input: unknown): Promise<ActionResult
   if (!parsed.success) return { ok: false, error: "invalid" };
   try {
     await db.notification.update({
-      where: { id: parsed.data.id },
+      where: { id: parsed.data.id, profileId: profile.id },
       data: { readAt: new Date() },
     });
   } catch {
