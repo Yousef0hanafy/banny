@@ -182,6 +182,11 @@ export async function updateChapterMeta(input: unknown): Promise<ActionResult> {
   const chapter = await db.chapter.findUnique({ where: { id }, include: { series: true } });
   if (!chapter) return { ok: false, error: "not_found" };
 
+  if (await db.chapterRevision.count({ where: { chapterId: id } })) {
+    if (actor.role !== "admin" && !await isAssignedToSeries(actor.id, chapter.seriesId)) return { ok: false, error: "forbidden" };
+    return { ok: false, error: "هذا الفصل يستخدم النسخ التحريرية؛ افتح النسخة في الاستوديو لتعديلها." };
+  }
+
   if (actor.role !== "admin") {
     // Non-admin staff (contributor/editor):
     // 1. Cannot touch published or scheduled chapters
@@ -235,47 +240,27 @@ export async function updateChapterMeta(input: unknown): Promise<ActionResult> {
   }
 
   // Admin path:
-  const data: Record<string, unknown> = { ...patch };
-  if (patch.scheduledFor !== undefined) {
-    const when = patch.scheduledFor ? new Date(patch.scheduledFor) : null;
-    if (when && Number.isNaN(when.getTime())) return { ok: false, error: "invalid" };
-    data.scheduledFor = when;
+  // In the new editorial workflow:
+  // 1. Published chapters cannot have their public metadata or body directly altered without an approved revision
+  if (chapter.workflow === "published") {
+    return { ok: false, error: "لا يمكن تعديل الفصل المنشور مباشرة؛ يرجى فتح مسودة مراجعة في استوديو التحرير." };
   }
-  if (patch.workflow === "published" && chapter.workflow !== "published" && !chapter.publishedAt) {
-    data.publishedAt = new Date();
-  }
-  if (patch.workflow && patch.workflow !== "published") {
-    data.publishedAt = null;
-    data.scheduledFor = null;
-  }
-  await db.chapter.update({ where: { id }, data });
 
-  const wasPublished = chapter.workflow === "published";
-  const nowPublished = (patch.workflow ?? chapter.workflow) === "published";
-  if (!wasPublished && nowPublished) {
-    await db.analyticsEvent.create({
-      data: {
-        type: "publish",
-        seriesId: chapter.seriesId,
-        chapterId: chapter.id,
-        metaJson: JSON.stringify({ number: chapter.number }),
-      },
-    });
-    await notifyNewChapter({
-      seriesId: chapter.seriesId,
-      seriesSlug: chapter.series.slug,
-      seriesTitle: chapter.series.titleAr,
-      seriesFormat: chapter.series.format,
-      chapterNumber: chapter.number,
-      chapterTitle: chapter.titleAr,
-    });
+  // 2. Direct publication or scheduling via legacy meta action is not allowed without revision approval
+  if (patch.workflow === "published" || patch.scheduledFor !== undefined) {
+    return { ok: false, error: "النشر والجدولة يتطلبان اعتماد نسخة محددة في استوديو التحرير." };
   }
+  const data: Record<string, unknown> = {
+    ...(patch.titleAr !== undefined ? { titleAr: patch.titleAr } : {}),
+    ...(patch.readingDirection !== undefined ? { readingDirection: patch.readingDirection } : {}),
+    ...(patch.workflow !== undefined ? { workflow: patch.workflow } : {}),
+    ...(patch.isPremiumDemo !== undefined ? { isPremiumDemo: patch.isPremiumDemo } : {}),
+  };
+  await db.chapter.update({ where: { id }, data });
 
   revalidatePath("/admin/chapters");
   revalidatePath(`/admin/series/${chapter.seriesId}`);
   revalidatePath(`/series/${chapter.series.slug}`);
-  revalidatePath("/explore");
-  revalidatePath("/");
   return { ok: true };
 }
 
@@ -308,15 +293,14 @@ export async function createChapter(input: unknown): Promise<ActionResult & { id
     if (!assigned) {
       return { ok: false, error: "forbidden" };
     }
-    if (d.workflow === "published") {
+    if (d.workflow === "published" || d.isPremiumDemo || d.scheduledFor) {
       return { ok: false, error: "forbidden" };
     }
-    if (d.isPremiumDemo) {
-      return { ok: false, error: "forbidden" };
-    }
-    if (d.scheduledFor) {
-      return { ok: false, error: "forbidden" };
-    }
+  }
+
+  // Admin cannot directly create published or scheduled chapter:
+  if (d.workflow === "published" || d.scheduledFor) {
+    return { ok: false, error: "لا يمكن إنشاء فصل منشور أو مجدول مباشرة؛ يُنشأ كمسودة ثم يُعتمد ويُنشر من الاستوديو." };
   }
 
   const series = await db.series.findUnique({ where: { id: d.seriesId } });
@@ -335,8 +319,8 @@ export async function createChapter(input: unknown): Promise<ActionResult & { id
         number: d.number,
         titleAr: d.titleAr,
         workflow: d.workflow,
-        publishedAt: d.workflow === "published" ? new Date() : null,
-        scheduledFor: d.scheduledFor ? new Date(d.scheduledFor) : null,
+        publishedAt: null,
+        scheduledFor: null,
         isPremiumDemo: d.isPremiumDemo,
         readingDirection: d.readingDirection,
         novelBody: d.novelBody ?? null,
@@ -347,17 +331,6 @@ export async function createChapter(input: unknown): Promise<ActionResult & { id
       return { ok: false, error: "رقم الفصل مستخدم في هذا العمل" };
     }
     throw err;
-  }
-
-  if (d.workflow === "published") {
-    await notifyNewChapter({
-      seriesId: series.id,
-      seriesSlug: series.slug,
-      seriesTitle: series.titleAr,
-      seriesFormat: series.format,
-      chapterNumber: d.number,
-      chapterTitle: d.titleAr,
-    });
   }
 
   // Novel chapters carry prose instead of generated pages.
@@ -410,35 +383,10 @@ export async function createChapter(input: unknown): Promise<ActionResult & { id
   return { ok: true, id: chapter.id };
 }
 
-export async function setWorkflowBulk(ids: string[], workflow: Workflow): Promise<ActionResult> {
-  try {
-    await requireAdmin();
-  } catch {
-    return { ok: false, error: "forbidden" };
-  }
+export async function setWorkflowBulk(_ids: string[], workflow: Workflow): Promise<ActionResult> {
+  try { await requireAdmin(); } catch { return { ok: false, error: "forbidden" }; }
   if (!isWorkflow(workflow)) return { ok: false, error: "invalid" };
-  for (const id of ids) {
-    const chapter = await db.chapter.findUnique({ where: { id }, include: { series: true } });
-    if (!chapter) continue;
-    const wasPublished = chapter.workflow === "published";
-    await db.chapter.update({
-      where: { id },
-      data: { workflow, publishedAt: workflow === "published" ? (chapter.publishedAt ?? new Date()) : null },
-    });
-    if (!wasPublished && workflow === "published") {
-      await notifyNewChapter({
-        seriesId: chapter.seriesId,
-        seriesSlug: chapter.series.slug,
-        seriesTitle: chapter.series.titleAr,
-        seriesFormat: chapter.series.format,
-        chapterNumber: chapter.number,
-        chapterTitle: chapter.titleAr,
-      });
-    }
-  }
-  revalidatePath("/admin/chapters");
-  revalidatePath("/");
-  return { ok: true };
+  return { ok: false, error: "تغيير حالة الفصول يتم من الاستوديو على نسخة محددة مع توثيق الإجراء." };
 }
 
 /* ------------------------------------------------------------------ */

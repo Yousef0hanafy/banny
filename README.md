@@ -387,3 +387,33 @@ any prior deployment from the dashboard.
 - Monitoring is placeholder-only by design (no external calls) — activation notes in
   `src/lib/analytics.ts`.
 - Source-document reconciliation stays post-hoc (FD-10).
+
+## Editorial studio — October 2026
+
+The current chapter workflow is at `/studio`. Contributors prepare assigned chapters;
+editors review, recommend approval or return them with a reason; administrators approve
+the exact saved version, publish, schedule, cancel schedules and withdraw published
+chapters with a recorded reason. Current roles and assignments are checked inside the
+database transaction. Stale forms must reload before changing a newer version.
+
+Published chapters remain readable while a separate revision is being edited. Editing
+reviewed or approved content clears its approval and schedule. Publication replaces the
+public chapter atomically, preserves its ID and reading progress, and creates follower
+notifications at publication time. Legacy direct-publish and bulk-workflow controls are
+disabled; use the studio.
+
+Scheduling stores an approved revision and a future timestamp. Local preview has a
+manual administrator button to publish due chapters. **No external scheduler is active.**
+For a deployment, configure a private nonempty `EDITORIAL_CRON_SECRET` and arrange an
+external scheduler to POST `/api/editorial/publish-due` with an `Authorization: Bearer`
+header containing that secret. GET and anonymous requests cannot publish. Each request
+processes at most 20 due approved revisions; repeat as needed. Concurrent calls do not
+publish the same revision twice.
+
+This package does not add file uploads, PDF import, protected file delivery, team account
+provisioning or versioned series metadata. Existing `/public` chapter images remain public;
+the editor can only reorder or remove assets already belonging to that chapter.
+
+Start the saved loopback preview with `bun run dev:local`. It applies migrations only to
+its local database and retains previously seeded data. Production database deployment
+and external cron activation are separate operator steps.

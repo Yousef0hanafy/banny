@@ -125,6 +125,8 @@ model Profile {
   notifications   Notification[]
   commentLikes    CommentLike[]
   assignments     SeriesAssignment[]
+  approvedRevisions ChapterRevision[] @relation("RevisionApprovedBy")
+  editorialEvents   ChapterEditorialEvent[]
 }
 
 model Series {
@@ -189,8 +191,66 @@ model Chapter {
   pages            ChapterPage[]
   progress         ReadingProgress[]
   comments         Comment[]
+  revisions        ChapterRevision[]
+  editorialEvents  ChapterEditorialEvent[]
 
   @@unique([seriesId, number])
+}
+
+enum ChapterRevisionStatus {
+  draft
+  review
+  changes_requested
+  approved
+  scheduled
+  published
+  withdrawn
+
+  @@map("chapter_revision_status")
+}
+
+model ChapterRevision {
+  id               String                @id @default(cuid())
+  chapterId        String
+  revisionNumber   Int
+  version          Int                   @default(1)
+  status           ChapterRevisionStatus @default(draft)
+  titleAr          String
+  readingDirection ReadingDirection      @default(rtl)
+  isPremiumDemo    Boolean               @default(false)
+  novelBody        String?
+  pagesJson        Json                  @default("[]")
+  scheduledFor     DateTime?
+  approvedById     String?
+  approvedAt       DateTime?
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  chapter          Chapter               @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  approvedBy       Profile?              @relation("RevisionApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  events           ChapterEditorialEvent[]
+
+  @@unique([chapterId, revisionNumber])
+  @@index([chapterId, status])
+}
+
+model ChapterEditorialEvent {
+  id          String           @id @default(cuid())
+  chapterId   String
+  revisionId  String?
+  actorId     String?
+  action      String
+  reasonAr    String?
+  metadata    Json             @default("{}")
+  createdAt   DateTime         @default(now())
+
+  chapter     Chapter          @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  revision    ChapterRevision? @relation(fields: [revisionId], references: [id], onDelete: SetNull)
+  actor       Profile?         @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([chapterId, createdAt])
+  @@index([revisionId])
+  @@index([actorId])
 }
 
 model ChapterPage {
