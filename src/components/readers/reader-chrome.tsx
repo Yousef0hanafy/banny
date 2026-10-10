@@ -26,10 +26,9 @@ export function LockedChapterPanel({
       <span className="grid size-16 place-items-center rounded-2xl border border-gold/40 bg-gold/10 text-gold">
         <Lock className="size-7" aria-hidden />
       </span>
-      <h2 className="mt-5 text-xl font-bold text-foreground">فصل تجريبي مقفل</h2>
+      <h2 className="mt-5 text-xl font-bold text-foreground">الفصل غير متاح حاليًا</h2>
       <p className="mt-2 max-w-md text-sm leading-8 text-muted-foreground">
-        هذا الفصل جزء من عرض المكتبة التجريبي القادم، وقراءته غير متاحة حاليًا. لا توجد أي عملية شراء هنا —
-        إنه مجرد عرض لشكل «الفصول المميزة» في المنتج الكامل.
+        قراءة هذا الفصل غير متاحة حاليًا. يمكنك العودة إلى قائمة الفصول أو اكتشاف عمل آخر.
       </p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-2.5">
         <Button asChild variant="outline" className="h-11 min-h-[44px] gap-2 rounded-xl border-border/80 px-4">
@@ -45,7 +44,7 @@ export function LockedChapterPanel({
           </Link>
         </Button>
       </div>
-      <p className="mt-6 text-xs text-muted-foreground/70">{seriesTitle} · عرض تجريبي</p>
+      <p className="mt-6 text-xs text-muted-foreground/70">{seriesTitle}</p>
     </div>
   );
 }

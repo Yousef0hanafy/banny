@@ -88,7 +88,7 @@ export default async function AdminSeriesDetailPage({
                     <p className="font-medium text-foreground">الفصل {c.number}: {c.titleAr}</p>
                     <p className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
                       {c.isPremiumDemo && (
-                        <Badge variant="secondary" className="border-gold/40 bg-gold/10 text-gold">مقفل تجريبيًا</Badge>
+                        <Badge variant="secondary" className="border-gold/40 bg-gold/10 text-gold">مقفل</Badge>
                       )}
                       {c.publishedAt ? `نُشر ${c.publishedAt.toLocaleDateString("ar-EG")}` : "غير منشور"}
                     </p>

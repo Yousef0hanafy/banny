@@ -15,7 +15,7 @@ export const authOptions: NextAuthOptions = {
   pages: { signIn: "/login" },
   providers: [
     CredentialsProvider({
-      name: "حساب تجريبي",
+      name: "البريد الإلكتروني وكلمة المرور",
       credentials: {
         email: { label: "البريد الإلكتروني", type: "email" },
         password: { label: "كلمة المرور", type: "password" },

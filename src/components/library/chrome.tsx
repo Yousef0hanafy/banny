@@ -278,11 +278,7 @@ export function SiteFooter() {
             </div>
           </div>
         </div>
-        <div className="mt-8 rounded-lg border border-gold/25 bg-gold/5 px-4 py-3 text-xs leading-6 text-gold">
-          منصة تجريبية لأغراض العرض — جميع الأعمال والعناوين والفصول والأسماء هنا محتوى خيالي أصلي أُنشئ خصيصًا لهذا العرض،
-          ولا يمثل أي أعمال حقيقية أو مرخّصة.
-        </div>
-        <p className="mt-4 text-center text-xs text-muted-foreground">© ٢٠٢٦ مكتبة باني — عرض تجريبي</p>
+        <p className="mt-8 text-center text-xs text-muted-foreground">© ٢٠٢٦ مكتبة باني</p>
       </div>
     </footer>
   );

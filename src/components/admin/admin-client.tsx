@@ -315,7 +315,7 @@ export function ChapterWorkflowControls({
     const res = await updateChapterMeta({ id: chapter.id, isPremiumDemo: !chapter.isPremiumDemo });
     setLoading(null);
     if (res.ok) {
-      toast({ title: chapter.isPremiumDemo ? "أُلغي القفل التجريبي" : "أصبح فصلًا تجريبيًا مقفلًا" });
+      toast({ title: chapter.isPremiumDemo ? "أُلغي قفل الفصل" : "أصبح الفصل مقفلًا" });
       router.refresh();
     }
   }
@@ -358,9 +358,9 @@ export function ChapterWorkflowControls({
             className={`border-gold/40 text-gold ${chapter.isPremiumDemo ? "bg-gold/10" : ""}`}
             onClick={togglePremium}
             disabled={loading === "premium"}
-            title="قفل/فتح العرض التجريبي للفصل"
+            title="قفل/فتح الفصل"
           >
-            {chapter.isPremiumDemo ? "مقفل" : "قفل تجريبي"}
+            {chapter.isPremiumDemo ? "مقفل" : "قفل الفصل"}
           </Button>
           <input
             type="datetime-local"
@@ -427,7 +427,7 @@ export function ChapterForm({
     }
     toast({
       title: "أُنشئ الفصل",
-      description: isNovel ? "أُضيف الفصل النصي." : scheduledAt ? "أُضيف الفصل ومُجدول للنشر." : "أُضيف الفصل مع صفحات تجريبية مجردة.",
+      description: isNovel ? "أُضيف الفصل النصي." : scheduledAt ? "أُضيف الفصل ومُجدول للنشر." : "أُضيف الفصل مع صفحات مُجهّزة تلقائيًا.",
     });
     router.push("/admin/chapters");
     router.refresh();
@@ -456,7 +456,7 @@ export function ChapterForm({
         <div className="space-y-1.5">
           <label className="text-sm font-medium">{isManga ? "عدد الصفحات" : "عدد اللوحات"} *</label>
           <Input type="number" min={1} max={30} required value={pageCount} onChange={(e) => setPageCount(e.target.value)} className="bg-card" />
-          <p className="text-[11px] text-muted-foreground">تُولَّد صفحات تجريبية مجردة تلقائيًا (رفع الملفات الحقيقي في إصدار لاحق).</p>
+          <p className="text-[11px] text-muted-foreground">تُجهّز صفحات تلقائيًا؛ رفع ملفات الفصل غير متاح حاليًا.</p>
         </div>
       </div>
       <div className="space-y-1.5">
@@ -516,7 +516,7 @@ export function ChapterForm({
       {isAdmin && (
         <label className="flex items-center gap-2.5 text-sm">
           <input type="checkbox" checked={isPremiumDemo} onChange={(e) => setIsPremiumDemo(e.target.checked)} className="size-4 accent-[var(--primary)]" />
-          فصل تجريبي مقفل (لعرض حالة الفصول المميزة — بلا شراء)
+          قفل الفصل ومنع قراءته
         </label>
       )}
       {error && <p role="alert" className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">{error}</p>}

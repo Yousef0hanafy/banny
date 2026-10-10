@@ -327,7 +327,7 @@ export function WorkTabs({
                         {/* Explicit distinct status labels */}
                         {locked && (
                           <span className="shrink-0 rounded-md border border-gold/30 bg-gold/15 px-2 py-0.5 text-[10px] font-semibold text-gold">
-                            فصل تجريبي مقفل
+                            فصل غير متاح حاليًا
                           </span>
                         )}
                         {isCurrentResume && (

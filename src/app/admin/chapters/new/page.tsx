@@ -36,7 +36,7 @@ export default async function NewChapterPage({
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">فصل جديد</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          يُنشأ الفصل مع صفحات/لوحات تجريبية مجردة — رفع المحتوى الحقيقي يعمل في إصدار لاحق.
+          يمكن إدخال نص الرواية هنا. للفصول المصوّرة، تُجهّز صفحات تلقائيًا؛ رفع ملفات الفصل غير متاح حاليًا.
         </p>
       </header>
       {options.length === 0 ? (

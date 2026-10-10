@@ -241,7 +241,7 @@ export default async function UpdatesPage({
                             {f.isPremiumDemo && (
                               <span className="inline-flex items-center gap-1 rounded bg-gold/15 px-2 py-0.5 text-xs font-medium text-gold">
                                 <Lock className="size-3" aria-hidden />
-                                <span>تجريبي مقفل</span>
+                                <span>غير متاح حاليًا</span>
                               </span>
                             )}
                           </div>

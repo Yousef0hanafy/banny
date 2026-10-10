@@ -38,7 +38,7 @@ async function seedProfiles() {
         role: acc.role as UserRole,
         passwordHash: hashPassword(acc.password),
         avatarSeed: `seed-${hashSeed(acc.email) % 6}`,
-        bio: "حساب تجريبي ضمن النسخة التجريبية من مكتبة باني.",
+        bio: "",
       },
     });
   }

@@ -37,6 +37,8 @@ function daysUnitAr(n: number): string {
 
 export default async function ProfilePage() {
   const profile = await requireProfile();
+  // Retire the old seeded placeholder without hiding user-written biographies.
+  const bio = profile.bio === "حساب تجريبي ضمن النسخة التجريبية من مكتبة باني." ? "" : (profile.bio ?? "");
   const [stats, activity, genres, readingStats] = await Promise.all([
     getProfileStats(profile.id),
     getProfileActivity(profile.id),
@@ -66,7 +68,7 @@ export default async function ProfilePage() {
             <div>
               <h1 className="text-2xl font-bold">{profile.nickname}</h1>
               <p className="text-xs text-muted-foreground" dir="ltr">{profile.email}</p>
-              {profile.bio && <p className="mt-1.5 max-w-md text-sm leading-7 text-foreground/85">{profile.bio}</p>}
+              {bio && <p className="mt-1.5 max-w-md text-sm leading-7 text-foreground/85">{bio}</p>}
             </div>
           </header>
 
@@ -178,7 +180,7 @@ export default async function ProfilePage() {
             {/* settings */}
             <section aria-label="إعدادات الحساب" className="rounded-2xl border border-border/60 bg-card p-4">
               <h2 className="mb-3 text-sm font-bold">إعدادات الحساب</h2>
-              <ProfileSettings nickname={profile.nickname} bio={profile.bio ?? ""} />
+              <ProfileSettings nickname={profile.nickname} bio={bio} />
             </section>
 
             {/* favorite genres */}

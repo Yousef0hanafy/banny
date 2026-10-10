@@ -112,7 +112,7 @@ export default async function AdminDashboard({
         <div>
           <h1 className="text-2xl font-bold text-foreground">اللوحة</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            نظرة سريعة على مكتبة العرض التجريبي — البيانات من بذرة العرض وأحداثه.
+            نظرة سريعة على الأعمال والفصول ونشاط القراء في المكتبة.
           </p>
         </div>
         <div className="flex gap-2">

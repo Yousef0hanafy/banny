@@ -2,18 +2,13 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { Loader2, LogIn, ShieldCheck, UserRound } from "lucide-react";
+import { Loader2, LogIn } from "lucide-react";
 import { BrandMark } from "@/components/library/brand-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-const DEMO_ACCOUNTS = [
-  { email: "admin@bunny.demo", password: "bunny-admin-2026", label: "حساب الإدارة", icon: ShieldCheck, hint: "لوحة الإدارة الكاملة" },
-  { email: "reader@bunny.demo", password: "bunny-reader-2026", label: "حساب قارئ", icon: UserRound, hint: "مزامنة تقدم القراءة" },
-];
 
 export function LoginForm() {
   const router = useRouter();
@@ -38,12 +33,6 @@ export function LoginForm() {
     router.refresh();
   }
 
-  function fill(acc: { email: string; password: string }) {
-    setEmail(acc.email);
-    setPassword(acc.password);
-    setError(null);
-  }
-
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8 text-center">
@@ -65,7 +54,7 @@ export function LoginForm() {
             dir="ltr"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="reader@bunny.demo"
+            placeholder="name@example.com"
             className="bg-card text-left"
             autoComplete="email"
             required
@@ -96,36 +85,7 @@ export function LoginForm() {
         </Button>
       </form>
 
-      <div className="my-6 flex items-center gap-3 text-[11px] text-muted-foreground">
-        <span className="h-px flex-1 bg-border" />
-        حسابات تجريبية جاهزة
-        <span className="h-px flex-1 bg-border" />
-      </div>
-
-      <div className="space-y-2">
-        {DEMO_ACCOUNTS.map((acc) => (
-          <button
-            key={acc.email}
-            type="button"
-            onClick={() => fill(acc)}
-            className="flex w-full items-center gap-3 rounded-xl border border-border/70 bg-card px-3.5 py-3 text-start transition hover:border-primary/40 hover:bg-accent/40"
-          >
-            <span className="grid size-9 place-items-center rounded-lg bg-secondary text-muted-foreground">
-              <acc.icon className="size-4.5" aria-hidden />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-medium text-foreground">{acc.label}</span>
-              <span className="block truncate text-[11px] text-muted-foreground" dir="ltr">
-                {acc.email}
-              </span>
-            </span>
-            <span className="text-[11px] text-primary">تعبئة</span>
-          </button>
-        ))}
-      </div>
-
       <p className="mt-6 text-center text-xs text-muted-foreground">
-        نسخة تجريبية — التسجيل الجديد يعمل بحسابات تجريبية فقط.{" "}
         <Link href="/" className="text-primary hover:underline">
           العودة للرئيسية
         </Link>
