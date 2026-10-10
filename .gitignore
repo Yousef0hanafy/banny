@@ -54,5 +54,6 @@ test
 prompt
 
 server.log
+/.local-preview/
 # Skills directory
 /skills/

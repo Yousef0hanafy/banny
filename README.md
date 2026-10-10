@@ -7,6 +7,18 @@ An Arabic-first, dark-mode, premium reading platform prototype for manga, webtoo
 
 **Demo notice (binding):** this is a product prototype. All series, chapters, covers, names, prose, and comments are original fictional content created for the demo. Nothing is licensed, official, or real. No payments. No downloads. No purchase flows.
 
+## Local preview (Windows, PowerShell or Git Bash)
+
+```sh
+bun run dev
+```
+
+Open http://localhost:3000. Without a configured PostgreSQL URL in `.env.local`, this command creates a loopback-only PostgreSQL database, applies migrations and seeds demo content on the first run. Saved progress and library changes persist in the gitignored `.local-preview/` directory; later runs do not reseed them. Stop with Ctrl+C. Initial setup and the first compilation of each route can take a minute.
+
+Reader demo: `reader@bunny.demo` / `bunny-reader-2026`. Admin demo: `admin@bunny.demo` / `bunny-admin-2026`.
+
+If `.env.local` contains a PostgreSQL URL, `dev` uses that configured database without migrating or seeding it. Use `bun run dev:local` to explicitly choose the isolated local demo database. Neither command needs Bash `env`, `tee` or a separate PostgreSQL installation. The launcher uses Next's webpack development server.
+
 ## Reader Foundation regression QA
 
 ```sh
