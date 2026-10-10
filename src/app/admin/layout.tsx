@@ -51,8 +51,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-e border-border/60 bg-sidebar p-4 md:flex">
-        <Link href="/admin" className="mb-6 flex items-center gap-2.5">
-          <BrandMark className="size-9" />
+        <Link href="/admin" className="mb-6 flex min-h-11 items-center gap-2.5">
+          <BrandMark className="size-11" />
           <span>
             <span className="block text-sm font-bold text-foreground">مكتبة باني</span>
             <span className="block text-[10px] text-gold">لوحة الإدارة</span>
@@ -95,8 +95,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       {/* Mobile top bar */}
       <div className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border/60 bg-background/90 px-4 backdrop-blur-md md:hidden">
-        <Link href="/admin" className="flex items-center gap-2 text-sm font-bold text-foreground">
-          <BrandMark className="size-5" />
+        <Link href="/admin" className="flex min-h-11 items-center gap-2 text-sm font-bold text-foreground">
+          <BrandMark className="size-8" />
           الإدارة
         </Link>
         <nav className="flex items-center gap-1" aria-label="تنقل الإدارة">

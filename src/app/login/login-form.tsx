@@ -47,8 +47,8 @@ export function LoginForm() {
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8 text-center">
-        <span className="mx-auto block w-14">
-          <BrandMark className="size-14" />
+        <span className="mx-auto block w-20">
+          <BrandMark className="size-20" alt="مكتبة باني" resolution={256} />
         </span>
         <h1 className="mt-4 text-2xl font-bold text-foreground">مرحبًا بعودتك</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">

@@ -22,9 +22,9 @@ import type { Role } from "@/lib/constants";
 
 function Logo() {
   return (
-    <Link href="/" className="flex items-center gap-2.5 group" aria-label="مكتبة باني — الرئيسية">
+    <Link href="/" className="group flex min-h-11 shrink-0 items-center gap-2.5" aria-label="مكتبة باني — الرئيسية">
       <span className="transition group-hover:brightness-125">
-        <BrandMark className="size-9" />
+        <BrandMark className="size-11" />
       </span>
       <span className="leading-tight">
         <span className="block font-bold text-[15px] text-foreground">مكتبة باني</span>
@@ -252,10 +252,10 @@ export function SiteFooter() {
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
           <div className="max-w-sm">
-            <div className="flex items-center gap-2 text-foreground">
-              <Library className="size-4 text-primary" aria-hidden />
+            <Link href="/" aria-label="مكتبة باني — الرئيسية" className="inline-flex min-h-11 items-center gap-2.5 text-foreground">
+              <BrandMark className="size-12" />
               <span className="font-bold">مكتبة باني</span>
-            </div>
+            </Link>
             <p className="mt-2 text-sm leading-7 text-muted-foreground">
               مكتبتك الشخصية للقصص التي تستحق الضياع فيها. تجربة قراءة عربية هادئة وفاخرة، بلا إعلانات ولا ضجيج.
             </p>
