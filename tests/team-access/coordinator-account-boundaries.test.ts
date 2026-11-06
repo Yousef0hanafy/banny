@@ -1,5 +1,5 @@
 import { afterAll, expect, test } from "bun:test";
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { db, setActor, actions as libraryActions } from "./session-fixture";
 import * as accounts from "../../src/lib/account-actions";
@@ -17,7 +17,7 @@ const changedPassword = "Changed-password-2026!";
 async function mailedToken(to: string, route: string) {
   const root = process.env.ACCOUNT_MAIL_LOCAL_DIR!;
   const files = await readdir(root);
-  for (const filename of files.reverse()) {
+  for (const filename of files.sort().reverse()) {
     if (!filename.endsWith(".json")) continue;
     const message = JSON.parse(await readFile(path.join(root, filename), "utf8"));
     if (message.to !== to || !message.text.includes(route)) continue;
@@ -46,6 +46,33 @@ test("public registration ignores privilege input and duplicate registration can
   const unchanged = await db.profile.findUniqueOrThrow({ where: { id: profile.id } });
   expect(await verifyPassword(originalPassword, unchanged.passwordHash)).toBe(true);
   expect(await verifyPassword(changedPassword, unchanged.passwordHash)).toBe(false);
+});
+
+test("registering again sends a fresh confirmation for a pending reader", async () => {
+  const address = email("repeat-signup");
+  expect((await accounts.registerReader({ email: address, nickname: "قارئ جديد", password: originalPassword })).ok).toBe(true);
+  const first = await mailedToken(address, "/verify-email");
+  expect((await accounts.registerReader({ email: address.toUpperCase(), nickname: "اسم آخر", password: changedPassword })).ok).toBe(true);
+  const second = await mailedToken(address, "/verify-email");
+  expect(second).not.toBe(first);
+  expect((await accounts.verifyEmailToken({ token: first, password: originalPassword })).ok).toBe(false);
+  expect((await accounts.verifyEmailToken({ token: second, password: originalPassword })).ok).toBe(true);
+});
+
+test("failed verification delivery leaves the previous link usable", async () => {
+  const address = email("failed-delivery");
+  expect((await accounts.registerReader({ email: address, nickname: "قارئ جديد", password: originalPassword })).ok).toBe(true);
+  const first = await mailedToken(address, "/verify-email");
+  const mailbox = process.env.ACCOUNT_MAIL_LOCAL_DIR!;
+  const blockedMailbox = path.join(mailbox, "not-a-directory");
+  await writeFile(blockedMailbox, "");
+  try {
+    process.env.ACCOUNT_MAIL_LOCAL_DIR = blockedMailbox;
+    await accounts.resendVerification({ email: address });
+  } finally {
+    process.env.ACCOUNT_MAIL_LOCAL_DIR = mailbox;
+  }
+  expect((await accounts.verifyEmailToken({ token: first, password: originalPassword })).ok).toBe(true);
 });
 
 test("verification token cannot reset a password and only one concurrent verification consumes it", async () => {
@@ -210,4 +237,22 @@ test("private local capture requires exact loopback hosts and disabled mail mode
     process.env.APP_ORIGIN = origin;
     process.env.ACCOUNT_MAIL_MODE = mode;
   }
+});
+
+test("failed password reset delivery preserves the previous usable link", async () => {
+  const address = email("reset-delivery");
+  await db.profile.create({ data: { email: address, nickname: "قارئ", role: "reader", passwordHash: "test", emailVerifiedAt: new Date() } });
+  expect((await accounts.requestPasswordReset({ email: address })).ok).toBe(true);
+  const first = await mailedToken(address, "/reset-password");
+  const mailbox = process.env.ACCOUNT_MAIL_LOCAL_DIR!;
+  const blockedMailbox = path.join(mailbox, "reset-not-a-directory");
+  await writeFile(blockedMailbox, "");
+  try {
+    process.env.ACCOUNT_MAIL_LOCAL_DIR = blockedMailbox;
+    expect((await accounts.requestPasswordReset({ email: address })).ok).toBe(true);
+  } finally {
+    process.env.ACCOUNT_MAIL_LOCAL_DIR = mailbox;
+  }
+  expect((await accounts.resetPasswordWithToken({ token: first, password: changedPassword })).ok).toBe(true);
+  expect((await accounts.resetPasswordWithToken({ token: first, password: changedPassword })).ok).toBe(false);
 });

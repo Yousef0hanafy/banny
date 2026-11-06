@@ -250,11 +250,23 @@ export async function executeDuePublications(limit = 20, options: { system?: boo
       const due = await tx.chapterRevision.findFirst({ where: { status: "scheduled", approvedAt: { not: null }, scheduledFor: { lte: new Date() } }, orderBy: [{ scheduledFor: "asc" }, { id: "asc" }] });
       if (!due) return { ok: true, data: { processed: false } };
       const latest = await tx.chapterRevision.findFirst({ where: { chapterId: due.chapterId }, orderBy: { revisionNumber: "desc" }, select: { id: true } });
-      if (latest?.id !== due.id) return { ok: false, error: "conflict" };
+      if (latest?.id !== due.id) {
+        const retired = await tx.chapterRevision.update({
+          where: { id: due.id },
+          data: { status: "approved", scheduledFor: null, version: { increment: 1 } },
+        });
+        await audit(tx, actor, retired, "cancel_schedule", "توجد نسخة أحدث من الفصل", {
+          scheduledFor: due.scheduledFor?.toISOString() ?? null,
+          supersededBy: latest?.id ?? null,
+        });
+        return { ok: true, data: { skipped: true } };
+      }
       return publishProjection(tx, actor, due, true);
     }, options);
     if (!result.ok) { errors.push(result.error ?? "تعذّر النشر"); break; }
-    if (!(result.data as { processed?: boolean } | undefined)?.processed) break;
+    const outcome = result.data as { processed?: boolean; skipped?: boolean } | undefined;
+    if (outcome?.skipped) continue;
+    if (!outcome?.processed) break;
     publishedCount++;
   }
   return { publishedCount, errors };

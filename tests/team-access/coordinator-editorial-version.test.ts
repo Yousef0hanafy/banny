@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { db, setActor, withActor } from "./session-fixture";
+import { actions, db, setActor, withActor } from "./session-fixture";
 import { openOrCreateDraft, updateDraftSnapshot, submitForReview, approveRevision, publishRevisionNow, scheduleRevision, executeDuePublications, withdrawPublishedChapter } from "../../src/lib/editorial";
 
 let adminId: string;
@@ -138,4 +138,30 @@ test("reader identity cannot dispatch due publications", async () => {
   const result = await withActor(readerId, () => executeDuePublications());
   expect(result.publishedCount).toBe(0);
   expect(result.errors).toContain("forbidden");
+});
+
+test("a superseded schedule is retired without blocking the next due chapter", async () => {
+  const first = await chapter();
+  const second = await chapter();
+  const titleAr = "الفصل المعتمد";
+  const approvedAt = new Date(Date.now() - 5000);
+  const stale = await db.chapterRevision.create({ data: { chapterId: first.id, revisionNumber: 1, titleAr, status: "scheduled", approvedAt, scheduledFor: new Date(Date.now() - 3000), novelBody: "النص المجدول القديم." } });
+  await db.chapterRevision.create({ data: { chapterId: first.id, revisionNumber: 2, titleAr, status: "draft" } });
+  const due = await db.chapterRevision.create({ data: { chapterId: second.id, revisionNumber: 1, titleAr, status: "scheduled", approvedAt, scheduledFor: new Date(Date.now() - 1000), novelBody: "النص المعتمد للنشر." } });
+  const result = await withActor(adminId, () => executeDuePublications());
+  expect(result).toEqual({ publishedCount: 1, errors: [] });
+  expect(await db.chapterRevision.findUniqueOrThrow({ where: { id: stale.id } })).toMatchObject({ status: "approved", scheduledFor: null, approvedAt });
+  expect(await db.chapterRevision.findUniqueOrThrow({ where: { id: due.id } })).toMatchObject({ status: "published" });
+  expect(await db.chapterEditorialEvent.count({ where: { revisionId: stale.id, action: "cancel_schedule" } })).toBe(1);
+  expect((await withActor(adminId, () => executeDuePublications())).publishedCount).toBe(0);
+});
+
+test("progress is rejected until the published chapter is visible", async () => {
+  const current = await chapter();
+  await db.chapter.update({ where: { id: current.id }, data: { scheduledFor: new Date(Date.now() + 60000) } });
+  const input = { seriesSlug: "coordinator-editorial-version", chapterNumber: current.number, pageIndex: 0, percent: 10, completed: false };
+  expect(await withActor(readerId, () => actions.saveReadingProgress(input))).toEqual({ ok: false, error: "not_found" });
+  expect(await db.readingProgress.count({ where: { chapterId: current.id, profileId: readerId } })).toBe(0);
+  await db.chapter.update({ where: { id: current.id }, data: { scheduledFor: new Date(Date.now() - 1000) } });
+  expect((await withActor(readerId, () => actions.saveReadingProgress(input))).ok).toBe(true);
 });

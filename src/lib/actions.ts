@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { currentProfileOrNull } from "@/lib/queries";
+import { currentProfileOrNull, liveChapterWhere } from "@/lib/queries";
 import { notifyNewChapter, notifyCommentLike } from "@/lib/notifications";
 import { revalidatePath } from "next/cache";
 import { isWorkflow, isRole, type Workflow, type Role } from "@/lib/constants";
@@ -34,7 +34,7 @@ export async function saveReadingProgress(input: unknown): Promise<ActionResult>
   const series = await db.series.findUnique({ where: { slug: seriesSlug } });
   if (!series) return { ok: false, error: "not_found" };
   const chapter = await db.chapter.findFirst({
-    where: { seriesId: series.id, number: chapterNumber, workflow: "published" },
+    where: { seriesId: series.id, number: chapterNumber, ...liveChapterWhere() },
   });
   if (!chapter) return { ok: false, error: "not_found" };
 
