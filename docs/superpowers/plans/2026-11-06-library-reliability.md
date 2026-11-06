@@ -1,0 +1,10 @@
+# Bunny Library reliability fixes
+
+**Goal.** Preserve password recovery after a failed replacement email, keep scheduled publishing moving past superseded revisions, and enforce the reader's visibility rule when saving progress.
+
+**Scope.** Three independent changes to existing server paths. Keep public responses generic, retain the per-email rate limit, and preserve current URLs and database schema. The title-language observation requires a reliable English field. The existing original-title field does not identify its language, so title presentation stays outside this fix.
+
+1. **Password recovery.** Add a regression in `tests/team-access/coordinator-account-boundaries.test.ts` that sends a reset link, forces local delivery failure on the next request, then consumes the first link. In `src/lib/account-service.ts`, capture the IDs of earlier active tokens inside the issuance transaction and retire them after successful delivery. On failure, revoke only the new token. Reuse that settlement with email verification. Verify that password reset still consumes its token and invalidates sessions.
+2. **Scheduled publication.** Add a regression in `tests/team-access/coordinator-editorial-version.test.ts` with a superseded due revision followed by a valid due revision. In `src/lib/editorial.ts`, cancel the superseded schedule inside the serializable transaction, keep its approval and history, record why it was cancelled, and continue processing. The existing bounded batch, authorization, and publication transaction still apply. Verify a subsequent run publishes neither row again.
+3. **Reading progress.** Add a regression that attempts to save progress before a legacy published chapter's scheduled time, then retries after it becomes visible. In `src/lib/actions.ts`, reuse `liveChapterWhere` from `src/lib/queries.ts`. Check the rejected request leaves no progress row.
+4. **Verification.** Reproduce the three failure cases before changing production code. Re-run focused checks after implementation, then run the isolated account/editorial suite, TypeScript and git diff checks. Report any checks blocked by the local runtime separately.

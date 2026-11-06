@@ -57,6 +57,13 @@ test("reader registers, confirms explicitly and skips onboarding back to the ori
   await page.getByRole("button", { name: "إنشاء الحساب", exact: true }).click();
   await expect.poll(async () => (await db.profile.findUnique({ where: { email: readerEmail } }))?.role).toBe("reader");
   await expect.poll(async () => { try { return await capturedLink(readerEmail, "/verify-email"); } catch { return ""; } }).not.toBe("");
+  const firstLink = await capturedLink(readerEmail, "/verify-email");
+  const resend = page.getByRole("button", { name: "إعادة إرسال رسالة التأكيد", exact: true });
+  await expect(resend).toBeVisible();
+  await expectNoOverflow(page);
+  await resend.click();
+  await expect.poll(() => capturedLink(readerEmail, "/verify-email")).not.toBe(firstLink);
+  await expect(page.getByRole("status").filter({ hasText: "ستصلك رسالة" })).toBeVisible();
   const link = await capturedLink(readerEmail, "/verify-email");
   await page.goto(link);
   expect((await db.profile.findUniqueOrThrow({ where: { email: readerEmail } })).emailVerifiedAt).toBeNull();

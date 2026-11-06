@@ -34,114 +34,25 @@ export async function registerReaderService(input: {
   password: string;
   next?: string;
 }): Promise<OperationResult> {
-  const email = input.email.trim().toLowerCase();
-  const nickname = input.nickname.trim();
-  const password = input.password;
   const next = safeAccountDestination(input.next, "/");
-
-  // Check mail rate limit for email (3/hr)
-  const allowedMail = await checkAndIncrementRateLimit(`verification-mail:${email}`, 3, 3600);
-  if (!allowedMail) {
-    return { ok: false, error: "تم تجاوز عدد الرسائل المسموح بها لهذا البريد، يرجى المحاولة لاحقًا." };
-  }
-
-  if (!isAccountMailConfigured()) {
-    return { ok: false, error: "خدمة البريد غير متوفرة حاليًا، يرجى المحاولة لاحقًا." };
-  }
-
-  // Hash password
-  const passwordHash = await hashPassword(password);
-  const rawToken = generateRawToken();
-  const tokenHash = hashToken(rawToken);
-  const expiresAt = new Date(Date.now() + 24 * 3600 * 1000); // 24h
-
-  // CAS inside serializable transaction
-  let tokenCreated = false;
-  const MAX_RETRIES = 5;
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    try {
-      await db.$transaction(
-        async (tx) => {
-          const existing = await tx.profile.findUnique({ where: { email } });
-          if (existing) {
-            // NEVER overwrite password of existing account (verified or unverified)
-            // But return generic success to avoid disclosing account existence
-            return;
-          }
-
-          const profile = await tx.profile.create({
-            data: {
-              email,
-              nickname,
-              passwordHash,
-              role: UserRole.reader,
-              emailVerifiedAt: null,
-              disabledAt: null,
-              authVersion: 0,
-            },
-          });
-
-          // Invalidate any older verify tokens for this email
-          await tx.accountToken.updateMany({
-            where: { email, purpose: AccountTokenPurpose.verify, revokedAt: null },
-            data: { revokedAt: new Date() },
-          });
-
-          await tx.accountToken.create({
-            data: {
-              tokenHash,
-              purpose: AccountTokenPurpose.verify,
-              profileId: profile.id,
-              email,
-              expiresAt,
-              nextPath: next,
-            },
-          });
-
-          tokenCreated = true;
-        },
-        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
-      );
-      break;
-    } catch (err: any) {
-      if (err?.code === "P2034" || err?.meta?.code === "40001" || err?.code === "P2002") {
-        if (attempt < MAX_RETRIES - 1) {
-          await new Promise((r) => setTimeout(r, 20 + Math.random() * 30));
-          continue;
-        }
-      }
-      throw err;
-    }
-  }
-
-  if (tokenCreated) {
-    const origin = getTrustedAppOrigin();
-    const verifyUrl = `${origin}/verify-email?token=${rawToken}`;
-    await sendAccountMail({
-      to: email,
-      subject: "تأكيد بريدك الإلكتروني في مكتبة باني",
-      text: `مرحبًا ${nickname}،\n\nيرجى تأكيد حسابك من خلال الرابط التالي:\n${verifyUrl}\n\nصلاحية هذا الرابط ٢٤ ساعة.`,
-    });
-  }
-
-  return {
-    ok: true,
-    message: "إذا كان البريد متاحًا للتسجيل، ستصلك رسالة لتأكيد الحساب.",
-    next,
-  };
+  const result = await requestVerificationMail(input.email, next, input);
+  if (!result.ok) return result;
+  return { ...result, next };
 }
-
-/* ------------------------------------------------------------------ */
-/* Resend Verification                                                */
-/* ------------------------------------------------------------------ */
 
 export async function resendVerificationService(input: {
   email: string;
   next?: string;
 }): Promise<OperationResult> {
-  const email = input.email.trim().toLowerCase();
-  const next = safeAccountDestination(input.next, "/");
+  return requestVerificationMail(input.email, safeAccountDestination(input.next, "/"));
+}
 
+async function requestVerificationMail(
+  address: string,
+  next: string,
+  registration?: { nickname: string; password: string }
+): Promise<OperationResult> {
+  const email = address.trim().toLowerCase();
   const allowedMail = await checkAndIncrementRateLimit(`verification-mail:${email}`, 3, 3600);
   if (!allowedMail) {
     return { ok: false, error: "تم تجاوز عدد الرسائل المسموح بها لهذا البريد، يرجى المحاولة لاحقًا." };
@@ -151,74 +62,83 @@ export async function resendVerificationService(input: {
     return { ok: false, error: "خدمة البريد غير متوفرة حاليًا، يرجى المحاولة لاحقًا." };
   }
 
+  const origin = getTrustedAppOrigin();
   const rawToken = generateRawToken();
   const tokenHash = hashToken(rawToken);
   const expiresAt = new Date(Date.now() + 24 * 3600 * 1000);
-
-  let tokenCreated = false;
-  let nickname = "";
+  const pendingTokens = { email, purpose: AccountTokenPurpose.verify, revokedAt: null, consumedAt: null };
+  const newProfile = registration && {
+    email,
+    nickname: registration.nickname.trim(),
+    passwordHash: await hashPassword(registration.password),
+    role: UserRole.reader,
+  };
+  const result = {
+    ok: true,
+    message: "إذا كان الحساب بانتظار التأكيد، ستصلك رسالة. إذا لم تصلك، يمكنك طلب رابط جديد.",
+  };
 
   const MAX_RETRIES = 5;
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    let issued: { nickname: string; olderTokenIds: string[] } | null;
     try {
-      await db.$transaction(
+      issued = await db.$transaction(
         async (tx) => {
-          const profile = await tx.profile.findUnique({ where: { email } });
-          // If profile does not exist, or is disabled, or is already verified, do not create token
-          if (!profile || profile.disabledAt || profile.emailVerifiedAt) {
-            return;
-          }
+          const existing = await tx.profile.findUnique({ where: { email } });
+          if (existing?.disabledAt || existing?.emailVerifiedAt) return null;
+          const profile = existing ?? (newProfile ? await tx.profile.create({ data: newProfile }) : null);
+          if (!profile) return null;
 
-          nickname = profile.nickname;
-
-          // Invalidate earlier verify tokens
-          await tx.accountToken.updateMany({
-            where: { email, purpose: AccountTokenPurpose.verify, revokedAt: null },
-            data: { revokedAt: new Date() },
+          const olderTokens = await tx.accountToken.findMany({
+            where: { ...pendingTokens, profileId: profile.id },
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+            select: { id: true, nextPath: true },
           });
-
+          const nextPath = next === "/" ? safeAccountDestination(olderTokens[0]?.nextPath, next) : next;
           await tx.accountToken.create({
-            data: {
-              tokenHash,
-              purpose: AccountTokenPurpose.verify,
-              profileId: profile.id,
-              email,
-              expiresAt,
-              nextPath: next,
-            },
+            data: { tokenHash, purpose: AccountTokenPurpose.verify, profileId: profile.id, email, expiresAt, nextPath },
           });
-
-          tokenCreated = true;
+          return { nickname: profile.nickname, olderTokenIds: olderTokens.map((token) => token.id) };
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
       );
-      break;
-    } catch (err: any) {
-      if (err?.code === "P2034" || err?.meta?.code === "40001") {
-        if (attempt < MAX_RETRIES - 1) {
-          await new Promise((r) => setTimeout(r, 20 + Math.random() * 30));
-          continue;
-        }
+    } catch (err) {
+      const error = err as { code?: string; meta?: { code?: string } } | null;
+      if ((error?.code === "P2034" || error?.meta?.code === "40001" || error?.code === "P2002") && attempt < MAX_RETRIES - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 20 + Math.random() * 30));
+        continue;
       }
       throw err;
     }
-  }
 
-  if (tokenCreated) {
-    const origin = getTrustedAppOrigin();
-    const verifyUrl = `${origin}/verify-email?token=${rawToken}`;
-    await sendAccountMail({
+    if (!issued) return result;
+
+    const delivery = await sendAccountMail({
       to: email,
       subject: "تأكيد بريدك الإلكتروني في مكتبة باني",
-      text: `مرحبًا ${nickname}،\n\nيرجى تأكيد حسابك من خلال الرابط التالي:\n${verifyUrl}\n\nصلاحية هذا الرابط ٢٤ ساعة.`,
+      text: `مرحبًا ${issued.nickname}،\n\nيرجى تأكيد حسابك من خلال الرابط التالي:\n${origin}/verify-email?token=${rawToken}\n\nصلاحية هذا الرابط ٢٤ ساعة.`,
     });
+
+    await settleAccountMail(delivery.ok, pendingTokens, tokenHash, issued.olderTokenIds);
+    return result;
   }
 
-  // Consistent message whether email exists or not (no info disclosure)
-  return {
-    ok: true,
-    message: "إذا كان البريد مسجلاً وغير مفعّل، ستصلك رسالة تأكيد عند إتمام الإرسال.",
-  };
+  throw new Error("Verification token issuance exhausted its retries");
+}
+
+async function settleAccountMail(
+  delivered: boolean,
+  pendingTokens: Prisma.AccountTokenWhereInput,
+  tokenHash: string,
+  olderTokenIds: string[]
+) {
+  // A failed delivery should leave previously delivered links usable.
+  const retiredTokens = delivered ? { id: { in: olderTokenIds } } : { tokenHash };
+  await db.accountToken.updateMany({
+    where: { ...pendingTokens, ...retiredTokens },
+    data: { revokedAt: new Date() },
+  });
+  if (!delivered) console.warn("Account mail delivery failed", { purpose: pendingTokens.purpose });
 }
 
 /* ------------------------------------------------------------------ */
@@ -325,26 +245,23 @@ export async function requestPasswordResetService(input: {
   const tokenHash = hashToken(rawToken);
   const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hour
 
-  let tokenCreated = false;
-  let nickname = "";
+  const pendingTokens = { email, purpose: AccountTokenPurpose.reset, revokedAt: null, consumedAt: null };
+  let issued: { nickname: string; olderTokenIds: string[] } | null = null;
 
   const MAX_RETRIES = 5;
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
-      await db.$transaction(
+      issued = await db.$transaction(
         async (tx) => {
           const profile = await tx.profile.findUnique({ where: { email } });
           // Must exist, not disabled, and emailVerifiedAt must not be null
           if (!profile || profile.disabledAt || !profile.emailVerifiedAt) {
-            return;
+            return null;
           }
 
-          nickname = profile.nickname;
-
-          // Invalidate earlier reset tokens
-          await tx.accountToken.updateMany({
-            where: { email, purpose: AccountTokenPurpose.reset, revokedAt: null },
-            data: { revokedAt: new Date() },
+          const olderTokens = await tx.accountToken.findMany({
+            where: { ...pendingTokens, profileId: profile.id },
+            select: { id: true },
           });
 
           await tx.accountToken.create({
@@ -357,7 +274,7 @@ export async function requestPasswordResetService(input: {
             },
           });
 
-          tokenCreated = true;
+          return { nickname: profile.nickname, olderTokenIds: olderTokens.map((token) => token.id) };
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
       );
@@ -373,14 +290,15 @@ export async function requestPasswordResetService(input: {
     }
   }
 
-  if (tokenCreated) {
+  if (issued) {
     const origin = getTrustedAppOrigin();
     const resetUrl = `${origin}/reset-password?token=${rawToken}`;
-    await sendAccountMail({
+    const delivery = await sendAccountMail({
       to: email,
       subject: "إعادة تعيين كلمة المرور في مكتبة باني",
-      text: `مرحبًا ${nickname}،\n\nتلقينا طلبًا لإعادة تعيين كلمة المرور الخاصة بحسابك:\n${resetUrl}\n\nصلاحية هذا الرابط ساعة واحدة. إذا لم تطلب ذلك، يمكنك تجاهل هذه الرسالة.`,
+      text: `مرحبًا ${issued.nickname}،\n\nتلقينا طلبًا لإعادة تعيين كلمة المرور الخاصة بحسابك:\n${resetUrl}\n\nصلاحية هذا الرابط ساعة واحدة. إذا لم تطلب ذلك، يمكنك تجاهل هذه الرسالة.`,
     });
+    await settleAccountMail(delivery.ok, pendingTokens, tokenHash, issued.olderTokenIds);
   }
 
   return {
