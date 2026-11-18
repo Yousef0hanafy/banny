@@ -417,13 +417,19 @@ public chapter atomically, preserves its ID and reading progress, and creates fo
 notifications at publication time. Legacy direct-publish and bulk-workflow controls are
 disabled; use the studio.
 
-Scheduling stores an approved revision and a future timestamp. Local preview has a
-manual administrator button to publish due chapters. **No external scheduler is active.**
-For a deployment, configure a private nonempty `EDITORIAL_CRON_SECRET` and arrange an
-external scheduler to POST `/api/editorial/publish-due` with an `Authorization: Bearer`
-header containing that secret. GET and anonymous requests cannot publish. Each request
-processes at most 20 due approved revisions; repeat as needed. Concurrent calls do not
-publish the same revision twice.
+Scheduling stores an approved revision and a future timestamp. Due revisions are published by
+`/api/editorial/publish-due`, which accepts a scheduler presenting `Authorization: Bearer <secret>`
+where the secret equals `EDITORIAL_CRON_SECRET` or `CRON_SECRET` (at least 16 characters). Two
+schedulers are wired:
+
+- `.github/workflows/publish-due.yml` POSTs every 10 minutes once the repository secrets
+  `BUNNY_SITE_URL` and `EDITORIAL_CRON_SECRET` exist (it skips quietly until then).
+- `vercel.json` registers a daily Vercel Cron (GET) as a backstop; Vercel sends `CRON_SECRET`
+  automatically when that variable is set in the project. Daily is the Hobby-plan maximum.
+
+Admins can still publish due chapters manually from the studio. Anonymous requests and GET without
+the secret cannot publish. Each request processes at most 20 due approved revisions; concurrent
+calls do not publish the same revision twice.
 
 This package does not add file uploads, PDF import, protected file delivery, team account
 provisioning or versioned series metadata. Existing `/public` chapter images remain public;

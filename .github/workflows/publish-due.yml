@@ -1,0 +1,40 @@
+name: Publish scheduled chapters
+
+# Calls the site's scheduled-publication endpoint every 10 minutes.
+# Requires two repository secrets (Settings > Secrets and variables > Actions):
+#   BUNNY_SITE_URL         e.g. https://your-domain.example (no trailing slash)
+#   EDITORIAL_CRON_SECRET  the same value set as EDITORIAL_CRON_SECRET in Vercel
+# The job is skipped quietly until both secrets exist.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: publish-due
+  cancel-in-progress: false
+
+jobs:
+  publish-due:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger due publications
+        env:
+          SITE_URL: ${{ secrets.BUNNY_SITE_URL }}
+          CRON_SECRET: ${{ secrets.EDITORIAL_CRON_SECRET }}
+        run: |
+          if [ -z "$SITE_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "Scheduler secrets are not configured; skipping."
+            exit 0
+          fi
+          status=$(curl -sS -o response.json -w "%{http_code}" --max-time 60 \
+            -X POST -H "Authorization: Bearer $CRON_SECRET" \
+            "$SITE_URL/api/editorial/publish-due")
+          cat response.json; echo
+          if [ "$status" != "200" ]; then
+            echo "::error::publish-due returned HTTP $status"
+            exit 1
+          fi
